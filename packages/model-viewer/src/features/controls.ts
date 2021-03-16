@@ -250,6 +250,8 @@ export declare interface ControlsInterface {
   getMaximumFieldOfView(): number;
   jumpCameraToGoal(): void;
   updateFraming(): Promise<void>;
+  zoomIn(): void;
+  zoomOut(): void;
   resetInteractionPrompt(): void;
 }
 
@@ -392,6 +394,14 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
 
     getMaximumFieldOfView(): number {
       return this[$controls].options.maximumFieldOfView!;
+    }
+
+    zoomIn(): void {
+      this[$controls].zoomIn();
+    }
+
+    zoomOut(): void {
+      this[$controls].zoomOut();
     }
 
     jumpCameraToGoal() {

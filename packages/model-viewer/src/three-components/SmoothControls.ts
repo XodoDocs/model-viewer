@@ -384,6 +384,14 @@ export class SmoothControls extends EventDispatcher {
     this.update(0, SETTLING_TIME);
   }
 
+  zoomIn() {
+    this.userAdjustOrbit(0, 0, -1 * ZOOM_SENSITIVITY);
+  }
+
+  zoomOut() {
+    this.userAdjustOrbit(0, 0, ZOOM_SENSITIVITY);
+  }
+
   /**
    * Update controls. In most cases, this will result in the camera
    * interpolating its position and rotation until it lines up with the
