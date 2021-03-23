@@ -1,0 +1,5 @@
+commit d69724f4e811f7668a80e99e4d99f86fe2c09b9e
+Author: Emmett Lalish <elalish@google.com>
+Date:   Tue Mar 23 08:55:10 2021 -0700
+
+    adding Safari explicitly to browser support message (#2149)
