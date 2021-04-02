@@ -78,6 +78,19 @@ export class Renderer extends EventDispatcher {
   public height = 0;
   public dpr = 1;
 
+  public getChildren(): Array<Object3D> {
+    const scene = this.scenes.values().next().value
+    const children = scene.children[0]
+                         .children[0]
+                         .children[0]
+                         ?.children[0]
+                         ?.children[0]
+                         ?.children[0]
+                         ?.children[0]
+                         ?.children;
+    return children;
+  }
+
   protected debugger: Debugger|null = null;
   private scenes: Set<ModelScene> = new Set();
   private multipleScenesVisible = false;
@@ -390,6 +403,18 @@ export class Renderer extends EventDispatcher {
     const {dpr, scaleFactor} = this;
 
     for (const scene of this.orderedScenes()) {
+      // console.log(scene.children);
+      // console.log('-------',
+      // scene.children[0].children[0].children[0]?.children[0]?.children[0]?.children[0]?.children[0]?.children);
+      // const children =
+      // scene.children[0].children[0].children[0]?.children[0]?.children[0]?.children[0]?.children[0]?.children;
+      // children && children.forEach((child, i) => {
+      //   // debugger;
+      //   if (i % 3 === 0) {
+      //     child.visible = false;
+      //   }
+      // });
+
       if (!scene.element[$sceneIsReady]()) {
         continue;
       }

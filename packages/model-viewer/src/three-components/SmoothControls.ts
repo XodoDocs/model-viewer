@@ -384,6 +384,10 @@ export class SmoothControls extends EventDispatcher {
     this.update(0, SETTLING_TIME);
   }
 
+  triggerReRender() {
+    this.dispatchEvent({type: 'change', source: ChangeSource.NONE});
+  }
+
   zoomIn() {
     this.userAdjustOrbit(0, 0, -1 * ZOOM_SENSITIVITY);
   }
@@ -450,6 +454,9 @@ export class SmoothControls extends EventDispatcher {
         this.isUserChange ? ChangeSource.USER_INTERACTION : ChangeSource.NONE;
 
     this.dispatchEvent({type: 'change', source});
+
+    // Added by KRISTIAN
+    this.isUserChange = false;
   }
 
   private get canInteract(): boolean {

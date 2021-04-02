@@ -14,7 +14,7 @@
  */
 
 import {property} from 'lit-element';
-import {Event, PerspectiveCamera, Spherical, Vector3} from 'three';
+import {Event, Object3D, PerspectiveCamera, Spherical, Vector3} from 'three';
 
 import {style} from '../decorators.js';
 import ModelViewerElementBase, {$ariaLabel, $container, $hasTransitioned, $loadedTime, $needsRender, $onModelLoad, $onResize, $renderer, $scene, $tick, $userInputElement, toVector3D, Vector3D} from '../model-viewer-base.js';
@@ -394,6 +394,14 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
 
     getMaximumFieldOfView(): number {
       return this[$controls].options.maximumFieldOfView!;
+    }
+
+    getChildren(): Array<Object3D> {
+      return this[$renderer].getChildren();
+    }
+
+    triggerReRender(): void {
+      this[$controls].triggerReRender();
     }
 
     zoomIn(): void {
