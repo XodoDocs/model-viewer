@@ -269,11 +269,15 @@ export class ModelScene extends Scene {
     if (this.width === width && this.height === height) {
       return;
     }
+
     this.width = Math.max(width, 1);
     this.height = Math.max(height, 1);
 
     this.aspect = this.width / this.height;
-    this.frameModel();
+
+    // Modified by KRISTIAN.
+    // This line causes the zooming out in the x-axis when resizing.
+    // this.frameModel();
 
     this.isDirty = true;
   }
