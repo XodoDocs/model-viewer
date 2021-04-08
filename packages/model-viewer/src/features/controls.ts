@@ -396,6 +396,14 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
       return this[$controls].options.maximumFieldOfView!;
     }
 
+    addWireframe(): void {
+      this[$renderer].addWireframe();
+    }
+
+    removeWireframe(): void {
+      this[$renderer].removeWireframe();
+    }
+
     getChildren(): Array<Object3D> {
       return this[$renderer].getChildren();
     }

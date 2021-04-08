@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, Event, EventDispatcher, GammaEncoding, PCFSoftShadowMap, WebGL1Renderer} from 'three';
+import {ACESFilmicToneMapping, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshPhongMaterial, PCFSoftShadowMap, PlaneGeometry, SphereGeometry, WebGL1Renderer, WireframeGeometry} from 'three';
 import {RoughnessMipmapper} from 'three/examples/jsm/utils/RoughnessMipmapper';
 
 import {USE_OFFSCREEN_CANVAS} from '../constants.js';
@@ -78,8 +78,74 @@ export class Renderer extends EventDispatcher {
   public height = 0;
   public dpr = 1;
 
+  private foo = []
+
+      public addWireframe(): void {
+    const scene = this.scenes.values().next().value;
+    // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
+
+    // https://stackoverflow.com/questions/37280995/threejs-remove-texture
+    const mat = new MeshBasicMaterial({color: 0xffffff, wireframe: true});
+    scene.traverse(child => {
+      if (child.isMesh) {
+        // // Setup our wireframe
+        // const wireframeGeometry = new WireframeGeometry(child.geometry);
+        // const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
+        // const wireframe = new LineSegments(wireframeGeometry,
+        // wireframeMaterial);
+
+        // wireframe.name = 'wireframe';
+        // child.add(wireframe);
+        // this.foo.push(() => child.remove(wireframe));
+
+        child.material = mat;
+      }
+    });
+  }
+
+  public removeWireframe(): void {
+    // const scene = this.scenes.values().next().value
+    // // console.log(scene.getObjectsByName('wireframe'));
+    // // // const objsToRemove
+    // // scene.remove(scene.getObjectByName('wireframe'));
+
+    // const objs = [];
+    // scene.traverse(function(child) {
+    //   if (child.name === "wireframe") {
+    //     console.log('reeeeeemove');
+    //     objs.push(child);
+    //     // scene.remove(child);
+    //   }
+    // });
+
+    // objs.forEach(obj => {
+    //   scene.remove(obj);
+    //   obj.geometry.dispose();
+    //   obj.material.dispose();
+    //   // obj = undefined;
+    //   console.log('dispose');
+    // });
+
+    this.foo.forEach(a => a());
+  }
+
   public getChildren(): Array<Object3D> {
     const scene = this.scenes.values().next().value
+    // //
+    // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
+    // scene.traverse(child => {
+    //   // child.visible = false;
+    // 	if (child.isMesh) {
+    // 		// Setup our wireframe
+    // 		const wireframeGeometry = new WireframeGeometry(child.geometry);
+    // 		const wireframeMaterial = new LineBasicMaterial({color:
+    // 0xFFFFFF}); 		const wireframe = new LineSegments(wireframeGeometry,
+    // wireframeMaterial);
+
+    // 		wireframe.name = 'wireframe';
+    // 		child.add(wireframe);
+    // 	}
+    // });
     const children = scene.children[0]
                          .children[0]
                          .children[0]
@@ -259,6 +325,45 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
+    var sphere = new Mesh(
+        new SphereGeometry(8.0, 32, 32),
+        new MeshPhongMaterial({color: 0x000000, wireframe: true}))
+    sphere.position.set(0, 0, -10);
+    scene.add(sphere);
+
+    //   var geometry = new PlaneGeometry(5, 5, 4, 4);
+    //   // const material = new MeshBasicMaterial( {color: 0xffff00, side:
+    //   DoubleSide} ); const material = new MeshBasicMaterial( {
+    //     color: 0xff0000,
+    //     polygonOffset: true,
+    //     polygonOffsetFactor: 1, // positive value pushes polygon further away
+    //     polygonOffsetUnits: 1,
+    //     side: DoubleSide,
+    // } );
+
+    //   // const wireframe = new WireframeGeometry( geometry );
+
+    //   // const line = new LineSegments( wireframe );
+    //   // line.material.depthTest = false;
+    //   // line.material.opacity = 1;
+    //   // line.material.transparent = true;
+
+    //   const plane = new Mesh( geometry, material );
+    //   // scene.add( plane );
+    //   scene.add( plane );
+
+    //   var geo = new EdgesGeometry( plane.geometry ); // or WireframeGeometry
+    //   var mat = new LineBasicMaterial( { color: 0xffffff } );
+    //   var wireframe = new LineSegments( geo, mat );
+    //   plane .add( wireframe );
+
+    //   // // wireframe
+    //   // var geo = new EdgesGeometry( mesh.geometry ); // or
+    //   WireframeGeometry
+    //   // var mat = new LineBasicMaterial( { color: 0x222222 } );
+    //   // var wireframe = new LineSegments( geo, mat );
+    //   // mesh.add( wireframe );
+
     this.scenes.add(scene);
     const {canvas} = scene;
     const scale = this.scaleFactor;
