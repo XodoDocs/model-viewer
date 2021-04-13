@@ -139,8 +139,8 @@ export class Renderer extends EventDispatcher {
     // 		// Setup our wireframe
     // 		const wireframeGeometry = new WireframeGeometry(child.geometry);
     // 		const wireframeMaterial = new LineBasicMaterial({color:
-    // 0xFFFFFF}); 		const wireframe = new LineSegments(wireframeGeometry,
-    // wireframeMaterial);
+    // 0xFFFFFF}); 		const wireframe = new
+    // LineSegments(wireframeGeometry, wireframeMaterial);
 
     // 		wireframe.name = 'wireframe';
     // 		child.add(wireframe);
@@ -325,11 +325,11 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
-    var sphere = new Mesh(
-        new SphereGeometry(8.0, 32, 32),
-        new MeshPhongMaterial({color: 0x000000, wireframe: true}))
-    sphere.position.set(0, 0, -10);
-    scene.add(sphere);
+    // var sphere = new Mesh(
+    //     new SphereGeometry(8.0, 32, 32),
+    //     new MeshPhongMaterial({color: 0x000000, wireframe: true}))
+    // sphere.position.set(0, 0, -10);
+    // scene.add(sphere);
 
     //   var geometry = new PlaneGeometry(5, 5, 4, 4);
     //   // const material = new MeshBasicMaterial( {color: 0xffff00, side:
