@@ -141,7 +141,6 @@ export class Renderer extends EventDispatcher {
         }
         else {
           this.cls.forEach((e, i) => {
-            console.log(e.position, vertices[i]);
             e.visible = true;
             e.position.copy(vertices[i]);
             if (i === 0) {
