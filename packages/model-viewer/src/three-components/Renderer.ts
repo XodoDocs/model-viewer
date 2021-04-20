@@ -116,19 +116,9 @@ export class Renderer extends EventDispatcher {
             [intersects[0].face.a, intersects[0].face.b, intersects[0].face.c];
 
         vertices.forEach((vId, i) => {
-          // console.log( this.mesh.geometry.isBufferGeometry );
-          console.log(vId);
-
           const position = this.mesh.geometry.attributes.position;
           const vector = new Vector3();
           vector.fromBufferAttribute(position, vId);
-          // vector.applyMatrix4( this.mesh.matrixWorld );
-
-          // for ( let i = 0, l = position.count; i < l; i ++ ) {
-          //   vector.fromBufferAttribute( position, i );
-          //   vector.applyMatrix4( this.mesh.matrixWorld );
-          // }
-          // console.log(vector.clone);
 
           vertices[i] = vector.clone();
           vertices[i].l2w = this.mesh.localToWorld(vertices[i].clone());
