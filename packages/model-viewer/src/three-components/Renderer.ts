@@ -141,10 +141,13 @@ export class Renderer extends EventDispatcher {
         }
         else {
           this.cls.forEach((e, i) => {
+            console.log(e.position, vertices[i]);
+            e.visible = true;
+            e.position.copy(vertices[i]);
             if (i === 0) {
-              e.visible = true;
-              e.position.copy(vertices[i]);
               e.material = this.red;
+            } else {
+              e.material = this.white;
             }
           });
         }
@@ -166,13 +169,6 @@ export class Renderer extends EventDispatcher {
     scene.traverse(child => {
       if (child.isMesh) {
         const vn = new VertexNormalsHelper(child, 0.05, 0xff0000);
-        // vn.name = 'vertexNormalHelper';
-        // const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
-        // const wireframe = new LineSegments(wireframeGeometry,
-        // wireframeMaterial);
-
-        // wireframe.name = 'wireframe';
-        // scene.add(vn);
         child.add(vn);
         funcs.push(() => child.remove(vn));
       }
@@ -181,10 +177,6 @@ export class Renderer extends EventDispatcher {
     return () => {
       funcs.forEach(func => func());
     };
-
-    // return () => {
-    //   funcs.forEach(func => func());
-    // }
   }
 
 
@@ -195,16 +187,6 @@ export class Renderer extends EventDispatcher {
     // https://stackoverflow.com/questions/37280995/threejs-remove-texture
     const wireframeMaterial =
         new MeshBasicMaterial({color: 0xffffff, wireframe: true});
-
-    // if (this.isWireframeAndModel) {
-    //   this.toggleWireframeAndModel();
-    // }
-
-    // if (!this.isWireframe) {
-    //   this.isWireframe = true;
-    // } else {
-    //   this.isWireframe = false;
-    // }
 
     scene.traverse(child => {
       if (child.isMesh) {
@@ -242,39 +224,6 @@ export class Renderer extends EventDispatcher {
       funcs.forEach(func => func());
     }
   }
-
-  // public unsetWireframe(): void {
-  //   const scene = this.scenes.values().next().value;
-  //   //
-  //   https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
-
-  //   // https://stackoverflow.com/questions/37280995/threejs-remove-texture
-  //   const wireframeMaterial = new MeshBasicMaterial({color: 0xffffff,
-  //   wireframe: true});
-
-  //   if (this.isWireframeAndModel) {
-  //     this.toggleWireframeAndModel();
-  //   }
-
-  //   if (!this.isWireframe) {
-  //     this.isWireframe = true;
-  //   } else {
-  //     this.isWireframe = false;
-  //   }
-
-  //   scene.traverse(child => {
-  //     if (child.isMesh) {
-  //       if (this.isWireframe) {
-  //         child.oldMaterial = child.material;
-  //         child.material = wireframeMaterial;
-  //       } else {
-  //         child.material = child.oldMaterial;
-  //       }
-  //     }
-  //   });
-  // }
-
-
 
   public toggleWireframe(): void {
     const scene = this.scenes.values().next().value;
@@ -335,32 +284,6 @@ export class Renderer extends EventDispatcher {
       this.foo.forEach(a => a());
     }
   }
-
-  // public removeWireframe(): void {
-  //   // const scene = this.scenes.values().next().value
-  //   // // console.log(scene.getObjectsByName('wireframe'));
-  //   // // // const objsToRemove
-  //   // // scene.remove(scene.getObjectByName('wireframe'));
-
-  //   // const objs = [];
-  //   // scene.traverse(function(child) {
-  //   //   if (child.name === "wireframe") {
-  //   //     console.log('reeeeeemove');
-  //   //     objs.push(child);
-  //   //     // scene.remove(child);
-  //   //   }
-  //   // });
-
-  //   // objs.forEach(obj => {
-  //   //   scene.remove(obj);
-  //   //   obj.geometry.dispose();
-  //   //   obj.material.dispose();
-  //   //   // obj = undefined;
-  //   //   console.log('dispose');
-  //   // });
-
-  //   this.foo.forEach(a => a());
-  // }
 
   public getChildren(): Array<Object3D> {
     const scene = this.scenes.values().next().value
@@ -585,9 +508,9 @@ export class Renderer extends EventDispatcher {
     scene.add(this.mesh);
 
     this.cls = [
-      new Mesh(new SphereGeometry(0.3)),
-      new Mesh(new SphereGeometry(0.3)),
-      new Mesh(new SphereGeometry(0.3))
+      new Mesh(new SphereGeometry(0.1)),
+      new Mesh(new SphereGeometry(0.1)),
+      new Mesh(new SphereGeometry(0.1))
     ];
 
     this.cls.forEach(e => {
