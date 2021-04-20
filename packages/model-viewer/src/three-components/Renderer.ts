@@ -112,6 +112,7 @@ export class Renderer extends EventDispatcher {
       // calculate objects intersecting the picking ray
       const intersects = raycaster.intersectObjects(scene.children);
       if (typeof intersects[0] !== 'undefined') {
+        console.log(intersects[0]);
         const vertices =
             [intersects[0].face.a, intersects[0].face.b, intersects[0].face.c];
 
@@ -135,19 +136,18 @@ export class Renderer extends EventDispatcher {
         // intersect.object.material.color.set(0xffffff * Math.random());
 
         if (vertices.length === 0) {
-          this.cls.forEach((e) => {
-            e.visible = false;
+          this.snapIndicators.forEach(snapIndicator => {
+            snapIndicator.visible = false;
           });
         }
         else {
-          this.cls.forEach((e, i) => {
-            console.log(e.position, vertices[i]);
-            e.visible = true;
-            e.position.copy(vertices[i]);
+          this.snapIndicators.forEach((snapIndicator, i) => {
+            snapIndicator.visiblsnapIndicator = true;
+            snapIndicator.position.copy(vertices[i]);
             if (i === 0) {
-              e.material = this.red;
+              snapIndicator.material = this.red;
             } else {
-              e.material = this.white;
+              snapIndicator.material = this.white;
             }
           });
         }
@@ -497,13 +497,13 @@ export class Renderer extends EventDispatcher {
     this.mesh.position.set(0, 0, -10);
     scene.add(this.mesh);
 
-    this.cls = [
+    this.snapIndicators = [
       new Mesh(new SphereGeometry(0.1)),
       new Mesh(new SphereGeometry(0.1)),
       new Mesh(new SphereGeometry(0.1))
     ];
 
-    this.cls.forEach(e => {
+    this.snapIndicators.forEach(e => {
       this.mesh.add(e);
     });
 
