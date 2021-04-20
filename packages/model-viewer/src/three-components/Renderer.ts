@@ -487,16 +487,6 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
-    // var sphere = new Mesh(
-    //     new BoxGeometry(8.0, 10, 10),
-    //     // new MeshBasicMaterial( { color: 0xff0000 } ),
-    //     new MeshBasicMaterial( { color: 0x00FF00 } ),
-    // );
-    // sphere.position.set(0, 0, -10);
-    // scene.add(sphere);
-
-
-
     this.mesh = new Mesh(
         new SphereGeometry(8.0, 32, 32),
         new MeshBasicMaterial({
@@ -518,41 +508,7 @@ export class Renderer extends EventDispatcher {
     });
 
     this.red = new MeshBasicMaterial({color: 0xff0000});
-
     this.white = new MeshBasicMaterial({color: 0xffffff});
-
-    //   var geometry = new PlaneGeometry(5, 5, 4, 4);
-    //   // const material = new MeshBasicMaterial( {color: 0xffff00, side:
-    //   DoubleSide} ); const material = new MeshBasicMaterial( {
-    //     color: 0xff0000,
-    //     polygonOffset: true,
-    //     polygonOffsetFactor: 1, // positive value pushes polygon further away
-    //     polygonOffsetUnits: 1,
-    //     side: DoubleSide,
-    // } );
-
-    //   // const wireframe = new WireframeGeometry( geometry );
-
-    //   // const line = new LineSegments( wireframe );
-    //   // line.material.depthTest = false;
-    //   // line.material.opacity = 1;
-    //   // line.material.transparent = true;
-
-    //   const plane = new Mesh( geometry, material );
-    //   // scene.add( plane );
-    //   scene.add( plane );
-
-    //   var geo = new EdgesGeometry( plane.geometry ); // or WireframeGeometry
-    //   var mat = new LineBasicMaterial( { color: 0xffffff } );
-    //   var wireframe = new LineSegments( geo, mat );
-    //   plane .add( wireframe );
-
-    //   // // wireframe
-    //   // var geo = new EdgesGeometry( mesh.geometry ); // or
-    //   WireframeGeometry
-    //   // var mat = new LineBasicMaterial( { color: 0x222222 } );
-    //   // var wireframe = new LineSegments( geo, mat );
-    //   // mesh.add( wireframe );
 
     this.scenes.add(scene);
     const {canvas} = scene;
