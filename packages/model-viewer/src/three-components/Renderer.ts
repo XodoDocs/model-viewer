@@ -575,12 +575,13 @@ export class Renderer extends EventDispatcher {
 
 
     this.mesh = new Mesh(
-                    new SphereGeometry(8.0, 32, 32),
-                    new MeshBasicMaterial({
-                      color: 0x00FF00,
-                      wireframe: true,
-                    }),
-                    ) this.mesh.position.set(0, 0, -10);
+        new SphereGeometry(8.0, 32, 32),
+        new MeshBasicMaterial({
+          color: 0x00FF00,
+          wireframe: true,
+        }),
+    );
+    this.mesh.position.set(0, 0, -10);
     scene.add(this.mesh);
 
     this.cls = [
