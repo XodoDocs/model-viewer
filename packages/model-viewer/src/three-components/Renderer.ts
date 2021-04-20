@@ -116,7 +116,7 @@ export class Renderer extends EventDispatcher {
             [intersects[0].face.a, intersects[0].face.b, intersects[0].face.c];
 
         vertices.forEach((vId, i) => {
-          const position = this.mesh.geometry.attributes.position;
+          const {position} = this.mesh.geometry.attributes;
           const vector = new Vector3();
           vector.fromBufferAttribute(position, vId);
 
