@@ -102,25 +102,75 @@ export class Renderer extends EventDispatcher {
     };
   }
 
+  public onDocumentMouseDown(event) {
+    console.log('onDocumentMouseDown');
+
+    for (const scene of this.orderedScenes()) {
+      // update the picking ray with the camera and mouse position
+      raycaster.setFromCamera(mouse, scene.getCamera());
+
+      // calculate objects intersecting the picking ray
+      const intersects = raycaster.intersectObjects(scene.children);
+      if (typeof intersects[0] !== 'undefined') {
+        const vertices =
+            [intersects[0].face.a, intersects[0].face.b, intersects[0].face.c];
+
+        vertices.forEach((vId, i) => {
+          // console.log( this.mesh.geometry.isBufferGeometry );
+          console.log(vId);
+
+          const position = this.mesh.geometry.attributes.position;
+          const vector = new Vector3();
+          vector.fromBufferAttribute(position, vId);
+          // vector.applyMatrix4( this.mesh.matrixWorld );
+
+          // for ( let i = 0, l = position.count; i < l; i ++ ) {
+          //   vector.fromBufferAttribute( position, i );
+          //   vector.applyMatrix4( this.mesh.matrixWorld );
+          // }
+          // console.log(vector.clone);
+
+          vertices[i] = vector.clone();
+          vertices[i].l2w = this.mesh.localToWorld(vertices[i].clone());
+          vertices[i].id = vId;
+          vertices[i].index = i;
+          vertices[i].distance =
+              vertices[i].l2w.distanceTo(intersects[0].point);
+        })
+
+        vertices.sort(function(a, b) {
+          return a.distance - b.distance;
+        })
+
+        // intersect.object.material.color.set(0xffffff * Math.random());
+
+        if (vertices.length === 0) {
+          this.cls.forEach((e) => {
+            e.visible = false;
+          });
+        }
+        else {
+          this.cls.forEach((e, i) => {
+            console.log(e.position, vertices[i]);
+            e.visible = true;
+            e.position.copy(vertices[i]);
+            if (i === 0) {
+              e.material = this.red;
+            } else {
+              e.material = this.white;
+            }
+          });
+        }
+
+        scene.isDirty = true;
+      }
+    }
+  }
 
   public onMouseMove(event) {
-    // calculate mouse position in normalized device coordinates
-    // (-1 to +1) for both components
-    // console.log(event.clientX, event.clientY);
-
-    // const docContent =
-    // window.document.querySelector('.measurement-container'); const { width,
-    // height } = docContent.getBoundingClientRect();
-
-    // console.log(this.canvasElement.width, this.canvasElement.height);
-
     const pos = this.getCanvasRelativePosition(event);
     mouse.x = (pos.x / this.canvasElement.width) * 2 - 1;
     mouse.y = -(pos.y / this.canvasElement.height) * 2 + 1;
-
-    console.log(mouse);
-
-    // console.log('onMOusemove', event, mouse.x, mouse.y);
   }
 
   public setVertexNormals() {
@@ -392,6 +442,8 @@ export class Renderer extends EventDispatcher {
     // const docContent =
     // window.document.querySelector('.measurement-container');
     window.addEventListener('mousemove', this.onMouseMove.bind(this), false);
+    window.addEventListener(
+        'mousedown', this.onDocumentMouseDown.bind(this), false);
 
     this.canvas3D = USE_OFFSCREEN_CANVAS ?
         this.canvasElement.transferControlToOffscreen() :
@@ -525,28 +577,6 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
-    // var geometry = new BoxGeometry( 20, 20, 20 );
-    // for ( var i = 0; i < 2000; i ++ ) {
-
-    //   var object = new Mesh( geometry, new MeshLambertMaterial( { color:
-    //   Math.random() * 0xffffff } ) );
-
-    //   object.position.x = Math.random() * 800 - 400;
-    //   object.position.y = Math.random() * 800 - 400;
-    //   object.position.z = Math.random() * 800 - 400;
-
-    //   object.rotation.x = ( Math.random() * 360 ) * Math.PI / 180;
-    //   object.rotation.y = ( Math.random() * 360 ) * Math.PI / 180;
-    //   object.rotation.z = ( Math.random() * 360 ) * Math.PI / 180;
-
-    //   object.scale.x = Math.random() + 0.5;
-    //   object.scale.y = Math.random() + 0.5;
-    //   object.scale.z = Math.random() + 0.5;
-
-    //   scene.add( object );
-
-    // }
-
     // var sphere = new Mesh(
     //     new BoxGeometry(8.0, 10, 10),
     //     // new MeshBasicMaterial( { color: 0xff0000 } ),
@@ -557,11 +587,27 @@ export class Renderer extends EventDispatcher {
 
 
 
-    var sphere = new Mesh(
-        new SphereGeometry(8.0, 32, 32),
-        new MeshBasicMaterial({color: 0x00FF00, wireframe: true}))
-    sphere.position.set(0, 0, -10);
-    scene.add(sphere);
+    this.mesh = new Mesh(
+                    new SphereGeometry(8.0, 32, 32),
+                    new MeshBasicMaterial(
+                        {color: 0x00FF00,
+                         wireframe: true})) this.mesh.position.set(0, 0, -10);
+    scene.add(this.mesh);
+
+    this.cls = [
+      new Mesh(new SphereGeometry(0.3)),
+      new Mesh(new SphereGeometry(0.3)),
+      new Mesh(new SphereGeometry(0.3))
+    ];
+
+    this.cls
+        .forEach(e => {
+          this.mesh.add(e);
+        })
+
+            this.red = new MeshBasicMaterial({color: 0xff0000});
+
+    this.white = new MeshBasicMaterial({color: 0xffffff});
 
     //   var geometry = new PlaneGeometry(5, 5, 4, 4);
     //   // const material = new MeshBasicMaterial( {color: 0xffff00, side:
@@ -740,16 +786,25 @@ export class Renderer extends EventDispatcher {
     const {dpr, scaleFactor} = this;
 
     for (const scene of this.orderedScenes()) {
-      // update the picking ray with the camera and mouse position
-      raycaster.setFromCamera(mouse, scene.getCamera());
+      // // update the picking ray with the camera and mouse position
+      // raycaster.setFromCamera(mouse, scene.getCamera());
 
-      // calculate objects intersecting the picking ray
-      const intersects = raycaster.intersectObjects(scene.children);
-      for (let i = 0; i < intersects.length; i++) {
-        console.log(intersects[i]);
-        intersects[i].object.material.color.set(0xffffff * Math.random());
-        scene.isDirty = true;
-      }
+      // // calculate objects intersecting the picking ray
+      // const intersects = raycaster.intersectObjects(scene.children);
+      // for (let i = 0; i < intersects.length; i++) {
+      //   console.log(intersects[i]);
+
+      //   const intersect = intersects[i];
+      //   const vertices = [
+      //     intersect.face.a,
+      //     intersect.face.b,
+      //     intersect.face.c
+      //   ];
+      //   console.log('vertices', vertices);
+
+      //   intersect.object.material.color.set(0xffffff * Math.random());
+      //   scene.isDirty = true;
+      // }
 
       if (!scene.element[$sceneIsReady]()) {
         continue;
