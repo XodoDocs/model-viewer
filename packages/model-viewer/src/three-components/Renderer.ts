@@ -590,12 +590,11 @@ export class Renderer extends EventDispatcher {
       new Mesh(new SphereGeometry(0.3))
     ];
 
-    this.cls
-        .forEach(e => {
-          this.mesh.add(e);
-        })
+    this.cls.forEach(e => {
+      this.mesh.add(e);
+    });
 
-            this.red = new MeshBasicMaterial({color: 0xff0000});
+    this.red = new MeshBasicMaterial({color: 0xff0000});
 
     this.white = new MeshBasicMaterial({color: 0xffffff});
 
