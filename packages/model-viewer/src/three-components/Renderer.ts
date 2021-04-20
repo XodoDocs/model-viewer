@@ -13,7 +13,10 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshPhongMaterial, PCFSoftShadowMap, PlaneGeometry, SphereGeometry, WebGL1Renderer, WireframeGeometry} from 'three';
+import {ACESFilmicToneMapping, BoxGeometry, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
+// import { VertexNormalsHelper } from
+// 'three/examples/jsm/helpers/VertexNormalsHelper.js';
+
 import {RoughnessMipmapper} from 'three/examples/jsm/utils/RoughnessMipmapper';
 
 import {USE_OFFSCREEN_CANVAS} from '../constants.js';
@@ -26,6 +29,7 @@ import {Debugger} from './Debugger.js';
 import {ModelViewerGLTFInstance} from './gltf-instance/ModelViewerGLTFInstance.js';
 import {ModelScene} from './ModelScene.js';
 import TextureUtils from './TextureUtils.js';
+import {VertexNormalsHelper} from './VertexNormalsHelper.js';
 
 export interface RendererOptions {
   debug?: boolean;
@@ -43,6 +47,12 @@ const HIGH_FRAME_DURATION_MS = 26;
 const MAX_AVG_CHANGE_MS = 2;
 const SCALE_STEPS = [1, 0.79, 0.62, 0.5, 0.4, 0.31, 0.25];
 const DEFAULT_LAST_STEP = 3;
+
+const raycaster = new Raycaster();
+const mouse = {
+  x: 0,
+  y: 0
+}
 
 /**
  * Registers canvases with Canvas2DRenderingContexts and renders them
@@ -78,56 +88,242 @@ export class Renderer extends EventDispatcher {
   public height = 0;
   public dpr = 1;
 
-  private foo = []
+  private foo = [] public isWireframe = false;
+  public isWireframeAndModel = false;
 
-      public addWireframe(): void {
+  // private resetViewMode(): void {
+  //   if ()
+  // }
+  public getCanvasRelativePosition(event) {
+    const rect = this.canvasElement.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) * this.canvasElement.width / rect.width,
+      y: (event.clientY - rect.top) * this.canvasElement.height / rect.height,
+    };
+  }
+
+
+  public onMouseMove(event) {
+    // calculate mouse position in normalized device coordinates
+    // (-1 to +1) for both components
+    // console.log(event.clientX, event.clientY);
+
+    // const docContent =
+    // window.document.querySelector('.measurement-container'); const { width,
+    // height } = docContent.getBoundingClientRect();
+
+    // console.log(this.canvasElement.width, this.canvasElement.height);
+
+    const pos = this.getCanvasRelativePosition(event);
+    mouse.x = (pos.x / this.canvasElement.width) * 2 - 1;
+    mouse.y = -(pos.y / this.canvasElement.height) * 2 + 1;
+
+    console.log(mouse);
+
+    // console.log('onMOusemove', event, mouse.x, mouse.y);
+  }
+
+  public setVertexNormals() {
     const scene = this.scenes.values().next().value;
-    // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
-
-    // https://stackoverflow.com/questions/37280995/threejs-remove-texture
-    const mat = new MeshBasicMaterial({color: 0xffffff, wireframe: true});
+    const funcs = [];
     scene.traverse(child => {
       if (child.isMesh) {
-        // // Setup our wireframe
-        // const wireframeGeometry = new WireframeGeometry(child.geometry);
+        const vn = new VertexNormalsHelper(child, 0.05, 0xff0000);
+        // vn.name = 'vertexNormalHelper';
         // const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
         // const wireframe = new LineSegments(wireframeGeometry,
         // wireframeMaterial);
 
         // wireframe.name = 'wireframe';
-        // child.add(wireframe);
-        // this.foo.push(() => child.remove(wireframe));
+        // scene.add(vn);
+        child.add(vn);
+        funcs.push(() => child.remove(vn));
+      }
+    });
 
-        child.material = mat;
+    return () => {
+      funcs.forEach(func => func());
+    };
+
+    // return () => {
+    //   funcs.forEach(func => func());
+    // }
+  }
+
+
+  public setWireframe(willSet = true) {
+    const scene = this.scenes.values().next().value;
+    // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
+
+    // https://stackoverflow.com/questions/37280995/threejs-remove-texture
+    const wireframeMaterial =
+        new MeshBasicMaterial({color: 0xffffff, wireframe: true});
+
+    // if (this.isWireframeAndModel) {
+    //   this.toggleWireframeAndModel();
+    // }
+
+    // if (!this.isWireframe) {
+    //   this.isWireframe = true;
+    // } else {
+    //   this.isWireframe = false;
+    // }
+
+    scene.traverse(child => {
+      if (child.isMesh) {
+        if (willSet) {
+          child.oldMaterial = child.material;
+          child.material = wireframeMaterial;
+        } else {
+          child.material = child.oldMaterial;
+        }
+      }
+    });
+
+    if (willSet === true) {
+      return () => this.setWireframe(false);
+    }
+    return () => {};
+  }
+
+  public setWireframeAndModel() {
+    const scene = this.scenes.values().next().value;
+    const funcs = [];
+    scene.traverse(child => {
+      if (child.isMesh) {
+        const wireframeGeometry = new WireframeGeometry(child.geometry);
+        const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
+        const wireframe =
+            new LineSegments(wireframeGeometry, wireframeMaterial);
+
+        wireframe.name = 'wireframe';
+        child.add(wireframe);
+        funcs.push(() => child.remove(wireframe));
+      }
+    });
+    return () => {
+      funcs.forEach(func => func());
+    }
+  }
+
+  // public unsetWireframe(): void {
+  //   const scene = this.scenes.values().next().value;
+  //   //
+  //   https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
+
+  //   // https://stackoverflow.com/questions/37280995/threejs-remove-texture
+  //   const wireframeMaterial = new MeshBasicMaterial({color: 0xffffff,
+  //   wireframe: true});
+
+  //   if (this.isWireframeAndModel) {
+  //     this.toggleWireframeAndModel();
+  //   }
+
+  //   if (!this.isWireframe) {
+  //     this.isWireframe = true;
+  //   } else {
+  //     this.isWireframe = false;
+  //   }
+
+  //   scene.traverse(child => {
+  //     if (child.isMesh) {
+  //       if (this.isWireframe) {
+  //         child.oldMaterial = child.material;
+  //         child.material = wireframeMaterial;
+  //       } else {
+  //         child.material = child.oldMaterial;
+  //       }
+  //     }
+  //   });
+  // }
+
+
+
+  public toggleWireframe(): void {
+    const scene = this.scenes.values().next().value;
+    // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
+
+    // https://stackoverflow.com/questions/37280995/threejs-remove-texture
+    const wireframeMaterial =
+        new MeshBasicMaterial({color: 0xffffff, wireframe: true});
+
+    if (this.isWireframeAndModel) {
+      this.toggleWireframeAndModel();
+    }
+
+    if (!this.isWireframe) {
+      this.isWireframe = true;
+    } else {
+      this.isWireframe = false;
+    }
+
+    scene.traverse(child => {
+      if (child.isMesh) {
+        if (this.isWireframe) {
+          child.oldMaterial = child.material;
+          child.material = wireframeMaterial;
+        } else {
+          child.material = child.oldMaterial;
+        }
       }
     });
   }
 
-  public removeWireframe(): void {
-    // const scene = this.scenes.values().next().value
-    // // console.log(scene.getObjectsByName('wireframe'));
-    // // // const objsToRemove
-    // // scene.remove(scene.getObjectByName('wireframe'));
+  public toggleWireframeAndModel(): void {
+    const scene = this.scenes.values().next().value;
 
-    // const objs = [];
-    // scene.traverse(function(child) {
-    //   if (child.name === "wireframe") {
-    //     console.log('reeeeeemove');
-    //     objs.push(child);
-    //     // scene.remove(child);
-    //   }
-    // });
+    if (this.isWireframe) {
+      this.toggleWireframe();
+    }
+    if (!this.isWireframeAndModel) {
+      this.isWireframeAndModel = true;
+    } else {
+      this.isWireframeAndModel = false;
+    }
 
-    // objs.forEach(obj => {
-    //   scene.remove(obj);
-    //   obj.geometry.dispose();
-    //   obj.material.dispose();
-    //   // obj = undefined;
-    //   console.log('dispose');
-    // });
+    if (this.isWireframeAndModel) {
+      scene.traverse(child => {
+        if (child.isMesh) {
+          const wireframeGeometry = new WireframeGeometry(child.geometry);
+          const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
+          const wireframe =
+              new LineSegments(wireframeGeometry, wireframeMaterial);
 
-    this.foo.forEach(a => a());
+          wireframe.name = 'wireframe';
+          child.add(wireframe);
+          this.foo.push(() => child.remove(wireframe));
+        }
+      });
+    } else {
+      this.foo.forEach(a => a());
+    }
   }
+
+  // public removeWireframe(): void {
+  //   // const scene = this.scenes.values().next().value
+  //   // // console.log(scene.getObjectsByName('wireframe'));
+  //   // // // const objsToRemove
+  //   // // scene.remove(scene.getObjectByName('wireframe'));
+
+  //   // const objs = [];
+  //   // scene.traverse(function(child) {
+  //   //   if (child.name === "wireframe") {
+  //   //     console.log('reeeeeemove');
+  //   //     objs.push(child);
+  //   //     // scene.remove(child);
+  //   //   }
+  //   // });
+
+  //   // objs.forEach(obj => {
+  //   //   scene.remove(obj);
+  //   //   obj.geometry.dispose();
+  //   //   obj.material.dispose();
+  //   //   // obj = undefined;
+  //   //   console.log('dispose');
+  //   // });
+
+  //   this.foo.forEach(a => a());
+  // }
 
   public getChildren(): Array<Object3D> {
     const scene = this.scenes.values().next().value
@@ -192,6 +388,10 @@ export class Renderer extends EventDispatcher {
 
     this.canvasElement = document.createElement('canvas');
     this.canvasElement.id = 'webgl-canvas';
+
+    // const docContent =
+    // window.document.querySelector('.measurement-container');
+    window.addEventListener('mousemove', this.onMouseMove.bind(this), false);
 
     this.canvas3D = USE_OFFSCREEN_CANVAS ?
         this.canvasElement.transferControlToOffscreen() :
@@ -325,11 +525,43 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
+    // var geometry = new BoxGeometry( 20, 20, 20 );
+    // for ( var i = 0; i < 2000; i ++ ) {
+
+    //   var object = new Mesh( geometry, new MeshLambertMaterial( { color:
+    //   Math.random() * 0xffffff } ) );
+
+    //   object.position.x = Math.random() * 800 - 400;
+    //   object.position.y = Math.random() * 800 - 400;
+    //   object.position.z = Math.random() * 800 - 400;
+
+    //   object.rotation.x = ( Math.random() * 360 ) * Math.PI / 180;
+    //   object.rotation.y = ( Math.random() * 360 ) * Math.PI / 180;
+    //   object.rotation.z = ( Math.random() * 360 ) * Math.PI / 180;
+
+    //   object.scale.x = Math.random() + 0.5;
+    //   object.scale.y = Math.random() + 0.5;
+    //   object.scale.z = Math.random() + 0.5;
+
+    //   scene.add( object );
+
+    // }
+
     // var sphere = new Mesh(
-    //     new SphereGeometry(8.0, 32, 32),
-    //     new MeshPhongMaterial({color: 0x000000, wireframe: true}))
+    //     new BoxGeometry(8.0, 10, 10),
+    //     // new MeshBasicMaterial( { color: 0xff0000 } ),
+    //     new MeshBasicMaterial( { color: 0x00FF00 } ),
+    // );
     // sphere.position.set(0, 0, -10);
     // scene.add(sphere);
+
+
+
+    var sphere = new Mesh(
+        new SphereGeometry(8.0, 32, 32),
+        new MeshBasicMaterial({color: 0x00FF00, wireframe: true}))
+    sphere.position.set(0, 0, -10);
+    scene.add(sphere);
 
     //   var geometry = new PlaneGeometry(5, 5, 4, 4);
     //   // const material = new MeshBasicMaterial( {color: 0xffff00, side:
@@ -508,17 +740,16 @@ export class Renderer extends EventDispatcher {
     const {dpr, scaleFactor} = this;
 
     for (const scene of this.orderedScenes()) {
-      // console.log(scene.children);
-      // console.log('-------',
-      // scene.children[0].children[0].children[0]?.children[0]?.children[0]?.children[0]?.children[0]?.children);
-      // const children =
-      // scene.children[0].children[0].children[0]?.children[0]?.children[0]?.children[0]?.children[0]?.children;
-      // children && children.forEach((child, i) => {
-      //   // debugger;
-      //   if (i % 3 === 0) {
-      //     child.visible = false;
-      //   }
-      // });
+      // update the picking ray with the camera and mouse position
+      raycaster.setFromCamera(mouse, scene.getCamera());
+
+      // calculate objects intersecting the picking ray
+      const intersects = raycaster.intersectObjects(scene.children);
+      for (let i = 0; i < intersects.length; i++) {
+        console.log('set material');
+        intersects[i].object.material.color.set(0xffffff * Math.random());
+        scene.isDirty = true;
+      }
 
       if (!scene.element[$sceneIsReady]()) {
         continue;
