@@ -141,12 +141,10 @@ export class Renderer extends EventDispatcher {
         }
         else {
           this.cls.forEach((e, i) => {
-            e.visible = true;
-            e.position.copy(vertices[i]);
             if (i === 0) {
+              e.visible = true;
+              e.position.copy(vertices[i]);
               e.material = this.red;
-            } else {
-              e.material = this.white;
             }
           });
         }
@@ -578,9 +576,11 @@ export class Renderer extends EventDispatcher {
 
     this.mesh = new Mesh(
                     new SphereGeometry(8.0, 32, 32),
-                    new MeshBasicMaterial(
-                        {color: 0x00FF00,
-                         wireframe: true})) this.mesh.position.set(0, 0, -10);
+                    new MeshBasicMaterial({
+                      color: 0x00FF00,
+                      wireframe: true,
+                    }),
+                    ) this.mesh.position.set(0, 0, -10);
     scene.add(this.mesh);
 
     this.cls = [
