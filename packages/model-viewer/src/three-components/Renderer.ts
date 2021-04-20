@@ -50,8 +50,8 @@ const DEFAULT_LAST_STEP = 3;
 
 const raycaster = new Raycaster();
 const mouse = {
-  x: 0,
-  y: 0
+  x: -100000,
+  y: -100000
 }
 
 /**
@@ -746,7 +746,7 @@ export class Renderer extends EventDispatcher {
       // calculate objects intersecting the picking ray
       const intersects = raycaster.intersectObjects(scene.children);
       for (let i = 0; i < intersects.length; i++) {
-        console.log('set material');
+        console.log(intersects[i]);
         intersects[i].object.material.color.set(0xffffff * Math.random());
         scene.isDirty = true;
       }
