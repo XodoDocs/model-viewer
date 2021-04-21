@@ -103,59 +103,49 @@ export class Renderer extends EventDispatcher {
   }
 
   public onDocumentMouseDown(event) {
-    console.log('onDocumentMouseDown');
-
     for (const scene of this.orderedScenes()) {
       // update the picking ray with the camera and mouse position
       raycaster.setFromCamera(mouse, scene.getCamera());
 
       // calculate objects intersecting the picking ray
-      const intersects = raycaster.intersectObjects(scene.children);
-      const firstIntersection = intersects[0];
-      if (typeof firstIntersection !== 'undefined') {
-        console.log(firstIntersection);
-        const vertices = [
-          firstIntersection.face.a,
-          firstIntersection.face.b,
-          firstIntersection.face.c
-        ];
+      const intersects = raycaster.intersectObjects(scene.children, true);
+      const firstInt = intersects[0];
+      console.log('onDocumentMouseDown', firstInt);
+      if (typeof firstInt !== 'undefined') {
+        const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
 
-        vertices.forEach((vId, i) => {
-          const {position} = this.mesh.geometry.attributes;
+        const {position} = firstInt.object.geometry.attributes;
+        const vertices = faceData.map(vId => {
           const vector = new Vector3();
           vector.fromBufferAttribute(position, vId);
-
-          vertices[i] = vector.clone();
-          vertices[i].l2w = this.mesh.localToWorld(vertices[i].clone());
-          vertices[i].id = vId;
-          vertices[i].index = i;
-          vertices[i].distance =
-              vertices[i].l2w.distanceTo(firstIntersection.point);
+          vector.distance = firstInt.object.localToWorld(vector.clone())
+                                .distanceTo(firstInt.point);
+          return vector;
         })
 
         vertices.sort(function(a, b) {
           return a.distance - b.distance;
         })
 
-        // firstIntersection.object.material.color.set(0xffffff *
-        // Math.random());
+        firstInt.object.material.color.set(0xffffff * Math.random());
 
-        if (vertices.length === 0) {
-          this.snapIndicators.forEach(snapIndicator => {
-            snapIndicator.visible = false;
-          });
-        }
-        else {
-          this.snapIndicators.forEach((snapIndicator, i) => {
-            snapIndicator.visiblsnapIndicator = true;
-            snapIndicator.position.copy(vertices[i]);
-            if (i === 0) {
-              snapIndicator.material = this.red;
-            } else {
-              snapIndicator.material = this.white;
-            }
-          });
-        }
+        // if (vertices.length === 0) {
+        //   this.snapIndicators.forEach(snapIndicator => {
+        //     firstInt.object.remove(snapIndicator);
+        //     // snapIndicator.visible = false;
+        //   });
+        // }
+        // else {
+        this.snapIndicators.forEach((snapIndicator, i) => {
+          firstInt.object.add(snapIndicator);
+          snapIndicator.position.copy(vertices[i]);
+          if (i === 0) {
+            snapIndicator.material = this.red;
+          } else {
+            snapIndicator.material = this.white;
+          }
+        });
+        // }
 
         scene.isDirty = true;
       }
@@ -477,25 +467,21 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
-    this.mesh = new Mesh(
+    const sphere = new Mesh(
         new SphereGeometry(8.0, 32, 32),
         new MeshBasicMaterial({
           color: 0x00FF00,
           wireframe: true,
         }),
     );
-    this.mesh.position.set(0, 0, -10);
-    scene.add(this.mesh);
+    sphere.position.set(0, 0, -10);
+    scene.add(sphere);
 
     this.snapIndicators = [
-      new Mesh(new SphereGeometry(0.1)),
-      new Mesh(new SphereGeometry(0.1)),
-      new Mesh(new SphereGeometry(0.1))
+      new Mesh(new SphereGeometry(0.04)),
+      new Mesh(new SphereGeometry(0.04)),
+      new Mesh(new SphereGeometry(0.04))
     ];
-
-    this.snapIndicators.forEach(e => {
-      this.mesh.add(e);
-    });
 
     this.red = new MeshBasicMaterial({color: 0xff0000});
     this.white = new MeshBasicMaterial({color: 0xffffff});
