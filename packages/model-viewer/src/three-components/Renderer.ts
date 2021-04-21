@@ -291,22 +291,7 @@ export class Renderer extends EventDispatcher {
   }
 
   public getChildren(): Array<Object3D> {
-    const scene = this.scenes.values().next().value
-    // //
-    // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
-    // scene.traverse(child => {
-    //   // child.visible = false;
-    // 	if (child.isMesh) {
-    // 		// Setup our wireframe
-    // 		const wireframeGeometry = new WireframeGeometry(child.geometry);
-    // 		const wireframeMaterial = new LineBasicMaterial({color:
-    // 0xFFFFFF}); 		const wireframe = new
-    // LineSegments(wireframeGeometry, wireframeMaterial);
-
-    // 		wireframe.name = 'wireframe';
-    // 		child.add(wireframe);
-    // 	}
-    // });
+    const scene = this.scenes.values().next().value;
     const children = scene.children[0]
                          .children[0]
                          .children[0]
