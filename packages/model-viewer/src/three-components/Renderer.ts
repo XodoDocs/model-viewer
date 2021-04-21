@@ -111,10 +111,14 @@ export class Renderer extends EventDispatcher {
 
       // calculate objects intersecting the picking ray
       const intersects = raycaster.intersectObjects(scene.children);
-      if (typeof intersects[0] !== 'undefined') {
-        console.log(intersects[0]);
-        const vertices =
-            [intersects[0].face.a, intersects[0].face.b, intersects[0].face.c];
+      const firstIntersection = intersects[0];
+      if (typeof firstIntersection !== 'undefined') {
+        console.log(firstIntersection);
+        const vertices = [
+          firstIntersection.face.a,
+          firstIntersection.face.b,
+          firstIntersection.face.c
+        ];
 
         vertices.forEach((vId, i) => {
           const {position} = this.mesh.geometry.attributes;
@@ -126,14 +130,15 @@ export class Renderer extends EventDispatcher {
           vertices[i].id = vId;
           vertices[i].index = i;
           vertices[i].distance =
-              vertices[i].l2w.distanceTo(intersects[0].point);
+              vertices[i].l2w.distanceTo(firstIntersection.point);
         })
 
         vertices.sort(function(a, b) {
           return a.distance - b.distance;
         })
 
-        // intersect.object.material.color.set(0xffffff * Math.random());
+        // firstIntersection.object.material.color.set(0xffffff *
+        // Math.random());
 
         if (vertices.length === 0) {
           this.snapIndicators.forEach(snapIndicator => {
