@@ -124,17 +124,13 @@ export class Renderer extends EventDispatcher {
           return a.distance - b.distance;
         })
 
-        firstInt.object.material.color.set(0xffffff * Math.random());
+        // firstInt.object.material.color.set(0xffffff * Math.random());
 
-        this.snapIndicators.forEach((snapIndicator, i) => {
-          if (i === 0) {
-            firstInt.object.add(snapIndicator);
-            snapIndicator.position.copy(vertices[i]);
-            snapIndicator.material = this.red;
-          } else {
-            snapIndicator.material = this.white;
-          }
-        });
+
+
+        firstInt.object.add(this.snapIndicator);
+        this.snapIndicator.position.copy(vertices[0]);
+        // snapIndicator.material = this.red;
 
         scene.isDirty = true;
       }
@@ -464,14 +460,13 @@ export class Renderer extends EventDispatcher {
     sphere.position.set(0, 0, -10);
     scene.add(sphere);
 
-    this.snapIndicators = [
-      new Mesh(new SphereGeometry(0.02)),
-      new Mesh(new SphereGeometry(0.02)),
-      new Mesh(new SphereGeometry(0.02))
-    ];
+    this.snapIndicator = new Mesh(
+        new SphereGeometry(0.04),
+        new MeshBasicMaterial({color: 0xff0000}),
+    );
 
-    this.red = new MeshBasicMaterial({color: 0xff0000});
-    this.white = new MeshBasicMaterial({color: 0xffffff});
+    // this.red = new MeshBasicMaterial({color: 0xff0000});
+    // this.white = new MeshBasicMaterial({color: 0xffffff});
 
     this.scenes.add(scene);
     const {canvas} = scene;
