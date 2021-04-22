@@ -450,25 +450,21 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
-    const sphere = new Mesh(
-        new SphereGeometry(8.0, 32, 32),
-        new MeshBasicMaterial({
-          color: 0x00FF00,
-          wireframe: true,
-        }),
-    );
-    sphere.position.set(0, 0, -10);
-    scene.add(sphere);
+    // const sphere = new Mesh(
+    //     new SphereGeometry(8.0, 32, 32),
+    //     new MeshBasicMaterial({
+    //       color: 0x00FF00,
+    //       wireframe: true,
+    //     }),
+    // );
+    // sphere.position.set(0, 0, -10);
+    // scene.add(sphere);
 
     this.snapIndicator = new Mesh(
         new SphereGeometry(0.04),
         new MeshBasicMaterial({color: 0xff0000}),
     );
-
     scene.add(this.snapIndicator);
-
-    // this.red = new MeshBasicMaterial({color: 0xff0000});
-    // this.white = new MeshBasicMaterial({color: 0xffffff});
 
     this.scenes.add(scene);
     const {canvas} = scene;
