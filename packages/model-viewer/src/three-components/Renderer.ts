@@ -109,7 +109,6 @@ export class Renderer extends EventDispatcher {
       const intersects = raycaster.intersectObjects(scene.children, true);
       const firstInt = intersects[0];
       if (typeof firstInt !== 'undefined') {
-        // const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
         const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
 
         const {position} = firstInt.object.geometry.attributes;
