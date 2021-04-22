@@ -88,12 +88,10 @@ export class Renderer extends EventDispatcher {
   public height = 0;
   public dpr = 1;
 
-  private foo = [] public isWireframe = false;
+  private foo = [];
+  public isWireframe = false;
   public isWireframeAndModel = false;
 
-  // private resetViewMode(): void {
-  //   if ()
-  // }
   public getCanvasRelativePosition(event) {
     const rect = this.canvasElement.getBoundingClientRect();
     return {
@@ -110,8 +108,8 @@ export class Renderer extends EventDispatcher {
       // calculate objects intersecting the picking ray
       const intersects = raycaster.intersectObjects(scene.children, true);
       const firstInt = intersects[0];
-      console.log('onDocumentMouseDown', firstInt);
       if (typeof firstInt !== 'undefined') {
+        // const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
         const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
 
         const {position} = firstInt.object.geometry.attributes;
@@ -129,23 +127,15 @@ export class Renderer extends EventDispatcher {
 
         firstInt.object.material.color.set(0xffffff * Math.random());
 
-        // if (vertices.length === 0) {
-        //   this.snapIndicators.forEach(snapIndicator => {
-        //     firstInt.object.remove(snapIndicator);
-        //     // snapIndicator.visible = false;
-        //   });
-        // }
-        // else {
         this.snapIndicators.forEach((snapIndicator, i) => {
-          firstInt.object.add(snapIndicator);
-          snapIndicator.position.copy(vertices[i]);
           if (i === 0) {
+            firstInt.object.add(snapIndicator);
+            snapIndicator.position.copy(vertices[i]);
             snapIndicator.material = this.red;
           } else {
             snapIndicator.material = this.white;
           }
         });
-        // }
 
         scene.isDirty = true;
       }
@@ -329,8 +319,6 @@ export class Renderer extends EventDispatcher {
     this.canvasElement = document.createElement('canvas');
     this.canvasElement.id = 'webgl-canvas';
 
-    // const docContent =
-    // window.document.querySelector('.measurement-container');
     window.addEventListener('mousemove', this.onMouseMove.bind(this), false);
     window.addEventListener(
         'mousedown', this.onDocumentMouseDown.bind(this), false);
@@ -478,9 +466,9 @@ export class Renderer extends EventDispatcher {
     scene.add(sphere);
 
     this.snapIndicators = [
-      new Mesh(new SphereGeometry(0.04)),
-      new Mesh(new SphereGeometry(0.04)),
-      new Mesh(new SphereGeometry(0.04))
+      new Mesh(new SphereGeometry(0.02)),
+      new Mesh(new SphereGeometry(0.02)),
+      new Mesh(new SphereGeometry(0.02))
     ];
 
     this.red = new MeshBasicMaterial({color: 0xff0000});
@@ -630,26 +618,6 @@ export class Renderer extends EventDispatcher {
     const {dpr, scaleFactor} = this;
 
     for (const scene of this.orderedScenes()) {
-      // // update the picking ray with the camera and mouse position
-      // raycaster.setFromCamera(mouse, scene.getCamera());
-
-      // // calculate objects intersecting the picking ray
-      // const intersects = raycaster.intersectObjects(scene.children);
-      // for (let i = 0; i < intersects.length; i++) {
-      //   console.log(intersects[i]);
-
-      //   const intersect = intersects[i];
-      //   const vertices = [
-      //     intersect.face.a,
-      //     intersect.face.b,
-      //     intersect.face.c
-      //   ];
-      //   console.log('vertices', vertices);
-
-      //   intersect.object.material.color.set(0xffffff * Math.random());
-      //   scene.isDirty = true;
-      // }
-
       if (!scene.element[$sceneIsReady]()) {
         continue;
       }
