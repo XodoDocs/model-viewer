@@ -109,29 +109,29 @@ export class Renderer extends EventDispatcher {
       const intersects = raycaster.intersectObjects(scene.children, true);
       const firstInt = intersects[0];
       if (typeof firstInt !== 'undefined') {
-        const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
+        // const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
 
-        const {position} = firstInt.object.geometry.attributes;
-        const vertices = faceData.map(vId => {
-          const vector = new Vector3();
-          vector.fromBufferAttribute(position, vId);
-          vector.distance = firstInt.object.localToWorld(vector.clone())
-                                .distanceTo(firstInt.point);
-          return vector;
-        })
+        // const {position} = firstInt.object.geometry.attributes;
+        // const vertices = faceData.map(vId => {
+        //   const vector = new Vector3();
+        //   vector.fromBufferAttribute(position, vId);
+        //   vector.distance = firstInt.object.localToWorld(vector.clone())
+        //                         .distanceTo(firstInt.point);
+        //   return vector;
+        // })
 
-        vertices.sort(function(a, b) {
-          return a.distance - b.distance;
-        })
+        // vertices.sort(function(a, b) {
+        //   return a.distance - b.distance;
+        // })
 
-        // firstInt.object.material.color.set(0xffffff * Math.random());
+        // point is in world space
+        this.snapIndicator.position.copy(firstInt.point);
+        // // if we wanted local space then we would use this
+        // firstInt.object.worldToLocal(firstInt.point.clone())
 
-
-
-        firstInt.object.add(this.snapIndicator);
-        this.snapIndicator.position.copy(vertices[0]);
         // snapIndicator.material = this.red;
 
+        // For re-rendering
         scene.isDirty = true;
       }
     }
@@ -464,6 +464,8 @@ export class Renderer extends EventDispatcher {
         new SphereGeometry(0.04),
         new MeshBasicMaterial({color: 0xff0000}),
     );
+
+    scene.add(this.snapIndicator);
 
     // this.red = new MeshBasicMaterial({color: 0xff0000});
     // this.white = new MeshBasicMaterial({color: 0xffffff});
