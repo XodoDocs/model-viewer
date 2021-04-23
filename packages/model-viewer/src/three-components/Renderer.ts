@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, BoxGeometry, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
+import {ACESFilmicToneMapping, BoxGeometry, BufferGeometry, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
 // import { VertexNormalsHelper } from
 // 'three/examples/jsm/helpers/VertexNormalsHelper.js';
 
@@ -96,37 +96,40 @@ export class Renderer extends EventDispatcher {
     };
   }
 
-  public setClosestPointOnModel() {
+  public startDistanceMeasurement(e) {
+    onDocumentMouseDown(e);
+
+    return (e) => onDocumentMouseDown(e);
   }
 
   public onDocumentMouseDown(event) {
     const pos = this.getCanvasRelativePosition(event);
-    const mouse = {} mouse.x = (pos.x / this.canvasElement.width) * 2 - 1;
-    mouse.y = -(pos.y / this.canvasElement.height) * 2 + 1;
+    const mouse = {
+      x: (pos.x / this.canvasElement.width) * 2 - 1,
+      y: -(pos.y / this.canvasElement.height) * 2 + 1,
+    };
 
+    const scene = this.scenes.values().next().value;
+    // update the picking ray with the camera and mouse position
+    raycaster.setFromCamera(mouse, scene.getCamera());
 
-    for (const scene of this.orderedScenes()) {
-      // update the picking ray with the camera and mouse position
-      raycaster.setFromCamera(mouse, scene.getCamera());
+    // calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(scene.children, true);
+    const firstInt = intersects[0];
+    if (typeof firstInt !== 'undefined') {
+      const snapIndicator = new Mesh(
+          new SphereGeometry(0.04),
+          new MeshBasicMaterial({color: 0xff0000}),
+      );
+      scene.add(snapIndicator);
 
-      // calculate objects intersecting the picking ray
-      const intersects = raycaster.intersectObjects(scene.children, true);
-      const firstInt = intersects[0];
-      if (typeof firstInt !== 'undefined') {
-        const snapIndicator = new Mesh(
-            new SphereGeometry(0.04),
-            new MeshBasicMaterial({color: 0xff0000}),
-        );
-        scene.add(snapIndicator);
+      // point is in world space
+      snapIndicator.position.copy(firstInt.point);
+      // // if we wanted local space then we would use this
+      // firstInt.object.worldToLocal(firstInt.point.clone())
 
-        // point is in world space
-        snapIndicator.position.copy(firstInt.point);
-        // // if we wanted local space then we would use this
-        // firstInt.object.worldToLocal(firstInt.point.clone())
-
-        // For re-rendering
-        scene.isDirty = true;
-      }
+      // For re-rendering
+      scene.isDirty = true;
     }
   }
 
@@ -451,6 +454,21 @@ export class Renderer extends EventDispatcher {
     //     new MeshBasicMaterial({color: 0xff0000}),
     // );
     // scene.add(this.snapIndicator);
+
+    const material = new LineBasicMaterial({
+      color: 0x0000ff,
+      // linewidth: 500, // doesn't work lol
+    });
+
+    const points = [];
+    points.push(new Vector3(-4, 0, 0));
+    points.push(new Vector3(0, 4, 0));
+    // points.push( new Vector3( 4, 0, 0 ) );
+
+    const geometry = new BufferGeometry().setFromPoints(points);
+
+    const line = new Line(geometry, material);
+    scene.add(line);
 
     this.scenes.add(scene);
     const {canvas} = scene;
