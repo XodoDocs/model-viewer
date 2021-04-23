@@ -49,10 +49,6 @@ const SCALE_STEPS = [1, 0.79, 0.62, 0.5, 0.4, 0.31, 0.25];
 const DEFAULT_LAST_STEP = 3;
 
 const raycaster = new Raycaster();
-const mouse = {
-  x: -100000,
-  y: -100000
-}
 
 /**
  * Registers canvases with Canvas2DRenderingContexts and renders them
@@ -100,7 +96,15 @@ export class Renderer extends EventDispatcher {
     };
   }
 
+  public setClosestPointOnModel() {
+  }
+
   public onDocumentMouseDown(event) {
+    const pos = this.getCanvasRelativePosition(event);
+    const mouse = {} mouse.x = (pos.x / this.canvasElement.width) * 2 - 1;
+    mouse.y = -(pos.y / this.canvasElement.height) * 2 + 1;
+
+
     for (const scene of this.orderedScenes()) {
       // update the picking ray with the camera and mouse position
       raycaster.setFromCamera(mouse, scene.getCamera());
@@ -109,38 +113,21 @@ export class Renderer extends EventDispatcher {
       const intersects = raycaster.intersectObjects(scene.children, true);
       const firstInt = intersects[0];
       if (typeof firstInt !== 'undefined') {
-        // const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
-
-        // const {position} = firstInt.object.geometry.attributes;
-        // const vertices = faceData.map(vId => {
-        //   const vector = new Vector3();
-        //   vector.fromBufferAttribute(position, vId);
-        //   vector.distance = firstInt.object.localToWorld(vector.clone())
-        //                         .distanceTo(firstInt.point);
-        //   return vector;
-        // })
-
-        // vertices.sort(function(a, b) {
-        //   return a.distance - b.distance;
-        // })
+        const snapIndicator = new Mesh(
+            new SphereGeometry(0.04),
+            new MeshBasicMaterial({color: 0xff0000}),
+        );
+        scene.add(snapIndicator);
 
         // point is in world space
-        this.snapIndicator.position.copy(firstInt.point);
+        snapIndicator.position.copy(firstInt.point);
         // // if we wanted local space then we would use this
         // firstInt.object.worldToLocal(firstInt.point.clone())
-
-        // snapIndicator.material = this.red;
 
         // For re-rendering
         scene.isDirty = true;
       }
     }
-  }
-
-  public onMouseMove(event) {
-    const pos = this.getCanvasRelativePosition(event);
-    mouse.x = (pos.x / this.canvasElement.width) * 2 - 1;
-    mouse.y = -(pos.y / this.canvasElement.height) * 2 + 1;
   }
 
   public setVertexNormals() {
@@ -314,7 +301,6 @@ export class Renderer extends EventDispatcher {
     this.canvasElement = document.createElement('canvas');
     this.canvasElement.id = 'webgl-canvas';
 
-    window.addEventListener('mousemove', this.onMouseMove.bind(this), false);
     window.addEventListener(
         'mousedown', this.onDocumentMouseDown.bind(this), false);
 
@@ -460,11 +446,11 @@ export class Renderer extends EventDispatcher {
     // sphere.position.set(0, 0, -10);
     // scene.add(sphere);
 
-    this.snapIndicator = new Mesh(
-        new SphereGeometry(0.04),
-        new MeshBasicMaterial({color: 0xff0000}),
-    );
-    scene.add(this.snapIndicator);
+    // this.snapIndicator = new Mesh(
+    //     new SphereGeometry(0.04),
+    //     new MeshBasicMaterial({color: 0xff0000}),
+    // );
+    // scene.add(this.snapIndicator);
 
     this.scenes.add(scene);
     const {canvas} = scene;
