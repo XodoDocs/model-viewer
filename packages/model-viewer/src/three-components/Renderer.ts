@@ -14,9 +14,10 @@
  */
 
 import {ACESFilmicToneMapping, BoxGeometry, BufferGeometry, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
-// import { VertexNormalsHelper } from
-// 'three/examples/jsm/helpers/VertexNormalsHelper.js';
-
+import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
+import {Line2} from 'three/examples/jsm/lines/Line2.js';
+import {LineGeometry} from 'three/examples/jsm/lines/LineGeometry.js';
+import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
 import {RoughnessMipmapper} from 'three/examples/jsm/utils/RoughnessMipmapper';
 
 import {USE_OFFSCREEN_CANVAS} from '../constants.js';
@@ -29,7 +30,9 @@ import {Debugger} from './Debugger.js';
 import {ModelViewerGLTFInstance} from './gltf-instance/ModelViewerGLTFInstance.js';
 import {ModelScene} from './ModelScene.js';
 import TextureUtils from './TextureUtils.js';
-import {VertexNormalsHelper} from './VertexNormalsHelper.js';
+
+// import {VertexNormalsHelper} from './VertexNormalsHelper.js'; // modified to
+// work with child
 
 export interface RendererOptions {
   debug?: boolean;
@@ -97,9 +100,95 @@ export class Renderer extends EventDispatcher {
   }
 
   public startDistanceMeasurement(e) {
-    onDocumentMouseDown(e);
+    const firstPoint = this.onDocumentMouseDown(e);
 
-    return (e) => onDocumentMouseDown(e);
+    if (firstPoint) {
+      const endDistanceMeasurement = _e => {
+        const secondPoint = this.onDocumentMouseDown(_e);
+        if (secondPoint) {
+          const positions = [];
+          positions.push(firstPoint.x, firstPoint.y, firstPoint.z);
+          positions.push(secondPoint.x, secondPoint.y, secondPoint.z);
+
+          const geometry = new LineGeometry();
+          geometry.setPositions(positions);
+          // geometry.setColors( colors );
+
+          const matLine = new LineMaterial({
+            color: 0x000000,
+            linewidth: 0.005,  // in pixels
+            vertexColors: true,
+            dashed: false
+          });
+
+          const line = new Line2(geometry, matLine);
+          line.computeLineDistances();
+          // line.scale.set( 1, 1, 1 );
+          line.name = 'measurement_line';
+
+
+          // const material = new LineBasicMaterial({
+          //   // color: 0xffffff,
+          //   color: 0xfff0000,
+          //   // linewidth: 500, // doesn't work lol
+          //   // depthTest: false,
+          //   // depthWrite: false,
+          // });
+          // // material.polygonOffset = true;
+          // // material.polygonOffsetUnits = 1;
+          // // material.polygonOffsetFactor = 1;
+          // // material.depthTest = false;
+          // const points = [];
+          // points.push(firstPoint);
+          // points.push(secondPoint);
+          // const geometry = new BufferGeometry().setFromPoints(points);
+          // const line = new Line(geometry, material);
+          // line.name = 'measurement_line';
+          // line.renderOrder = 9999;
+          // // console.log('renderOrder', line.renderOrder);
+          // // line.renderOrder = 999;
+          // // line.onBeforeRender = function( renderer ) {
+          // //   // console.log('onbefore!!!!!!!!');
+          // //   renderer.clearDepth();
+          // // };
+          const scene = this.scenes.values().next().value;
+          // scene.traverse(child => {
+          //   if (child.isMesh && child.name !== 'measurement_line') {
+          //     // child.material.depthWrite = false;
+          //     // child.material.polygonOffset = true;
+          //     // child.material.polygonOffsetUnits = 1;
+          //     // child.material.polygonOffsetFactor = 1;
+          //   }
+          // });
+          scene.add(line);
+
+
+          const snapIndicator = new Mesh(
+              new SphereGeometry(0.04),
+              new MeshBasicMaterial({color: 0xff0000}),
+          );
+          snapIndicator.name = 'measurement_line';
+          scene.add(snapIndicator);
+
+          // https://stackoverflow.com/a/58580387
+          let dir = secondPoint.clone().sub(firstPoint);
+          const length = dir.length();
+          dir = dir.normalize().multiplyScalar(length * .5);
+          const midPoint = firstPoint.clone().add(dir);
+
+          snapIndicator.position.copy(midPoint);
+
+          const newMidPoint = midPoint.clone();
+          newMidPoint.project(scene.getCamera());
+          return {
+            midPoint: newMidPoint,
+          };
+        } else {
+          return endDistanceMeasurement;
+        }
+      } return endDistanceMeasurement;
+    }
+    return null;
   }
 
   public onDocumentMouseDown(event) {
@@ -114,13 +203,18 @@ export class Renderer extends EventDispatcher {
     raycaster.setFromCamera(mouse, scene.getCamera());
 
     // calculate objects intersecting the picking ray
-    const intersects = raycaster.intersectObjects(scene.children, true);
+    // scene.children(child => child.name !== 'measurement_line');
+    const intersects = raycaster.intersectObjects(
+        scene.children.filter(child => child.name !== 'measurement_line'),
+        true);
     const firstInt = intersects[0];
+    console.log('firstInt', firstInt);
     if (typeof firstInt !== 'undefined') {
       const snapIndicator = new Mesh(
           new SphereGeometry(0.04),
           new MeshBasicMaterial({color: 0xff0000}),
       );
+      snapIndicator.name = 'measurement_line';
       scene.add(snapIndicator);
 
       // point is in world space
@@ -130,7 +224,9 @@ export class Renderer extends EventDispatcher {
 
       // For re-rendering
       scene.isDirty = true;
+      return firstInt.point.clone();
     }
+    return null;
   }
 
   public setVertexNormals() {
@@ -139,16 +235,19 @@ export class Renderer extends EventDispatcher {
     scene.traverse(child => {
       if (child.isMesh) {
         const vn = new VertexNormalsHelper(child, 0.05, 0xff0000);
-        child.add(vn);
-        funcs.push(() => child.remove(vn));
+        // vn.name = 'vertexNormalHelper';
+        // const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
+        // const wireframe = new LineSegments(wireframeGeometry,
+        // wireframeMaterial); wireframe.name = 'wireframe'; child.add(vn);
+        // funcs.push(() => child.remove(vn));
+        scene.add(vn);
+        funcs.push(() => scene.remove(vn));
       }
     });
-
     return () => {
       funcs.forEach(func => func());
     };
   }
-
 
   public setWireframe(willSet = true) {
     const scene = this.scenes.values().next().value;
@@ -304,8 +403,8 @@ export class Renderer extends EventDispatcher {
     this.canvasElement = document.createElement('canvas');
     this.canvasElement.id = 'webgl-canvas';
 
-    window.addEventListener(
-        'mousedown', this.onDocumentMouseDown.bind(this), false);
+    // window.addEventListener(
+    //     'mousedown', this.onDocumentMouseDown.bind(this), false);
 
     this.canvas3D = USE_OFFSCREEN_CANVAS ?
         this.canvasElement.transferControlToOffscreen() :
@@ -447,7 +546,13 @@ export class Renderer extends EventDispatcher {
     //     }),
     // );
     // sphere.position.set(0, 0, -10);
-    // scene.add(sphere);
+    // // sphere.renderOrder = 99999999;
+    // // sphere.onBeforeRender = function( renderer ) {
+    // //   // console.log('onbefore!!!!!!!!');
+    // //   renderer.clearDepth();
+    // // };
+    // this.scene2 = new Scene();
+    // this.scene2.add(sphere);
 
     // this.snapIndicator = new Mesh(
     //     new SphereGeometry(0.04),
@@ -455,20 +560,21 @@ export class Renderer extends EventDispatcher {
     // );
     // scene.add(this.snapIndicator);
 
-    const material = new LineBasicMaterial({
-      color: 0x0000ff,
-      // linewidth: 500, // doesn't work lol
-    });
+    // const material = new LineBasicMaterial({
+    //   color: 0xffffff,
+    //   // linewidth: 500, // doesn't work lol
+    // });
 
-    const points = [];
-    points.push(new Vector3(-4, 0, 0));
-    points.push(new Vector3(0, 4, 0));
-    // points.push( new Vector3( 4, 0, 0 ) );
+    // const points = [];
+    // points.push(new Vector3(-4, 0, 0));
+    // points.push(new Vector3(0, 4, 0));
+    // // points.push( new Vector3( 4, 0, 0 ) );
 
-    const geometry = new BufferGeometry().setFromPoints(points);
+    // const geometry = new BufferGeometry().setFromPoints(points);
 
-    const line = new Line(geometry, material);
-    scene.add(line);
+    // const line = new Line(geometry, material);
+    // scene.add(line);
+    console.group('scene', scene.children);
 
     this.scenes.add(scene);
     const {canvas} = scene;
