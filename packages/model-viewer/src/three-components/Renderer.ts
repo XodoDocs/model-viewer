@@ -258,7 +258,6 @@ export class Renderer extends EventDispatcher {
     raycaster.setFromCamera(mouse, scene.getCamera());
 
     // calculate objects intersecting the picking ray
-    // scene.children(child => child.name !== 'measurement_line');
     const intersects = raycaster.intersectObjects(
         scene.children.filter(child => child.name !== 'measurement_group'),
         true);
@@ -269,18 +268,17 @@ export class Renderer extends EventDispatcher {
           new MeshBasicMaterial(),
       );
       snapIndicator.material.color.setHex(measurementHexColor);
-      snapIndicator.highlight =
-          () => {
-            console.log('highlight', selectedHexColor);
-            snapIndicator.material.color.setHex(selectedHexColor);
-          } snapIndicator.unhighlight =
-              () => {
-                console.log('unhighlight', measurementHexColor);
-                snapIndicator.material.color.setHex(measurementHexColor);
-              }
+      snapIndicator.highlight = () => {
+        console.log('highlight', selectedHexColor);
+        snapIndicator.material.color.setHex(selectedHexColor);
+      };
+      snapIndicator.unhighlight = () => {
+        console.log('unhighlight', measurementHexColor);
+        snapIndicator.material.color.setHex(measurementHexColor);
+      };
 
-                    // point is in world space
-                    snapIndicator.position.copy(firstInt.point);
+      // point is in world space
+      snapIndicator.position.copy(firstInt.point);
       // // if we wanted local space then we would use this
       // firstInt.object.worldToLocal(firstInt.point.clone())
 
