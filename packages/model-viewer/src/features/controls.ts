@@ -416,8 +416,10 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
     //   this[$renderer].toggleWireframeAndModel();
     // }
 
-    startDistanceMeasurement(e): Array<Object3D> {
-      return this[$renderer].startDistanceMeasurement(e);
+    startDistanceMeasurement(e, measurementHexColor, selectedHexColor):
+        Array<Object3D> {
+      return this[$renderer].startDistanceMeasurement(
+          e, measurementHexColor, selectedHexColor);
     }
 
     getChildren(): Array<Object3D> {

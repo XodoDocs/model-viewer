@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, BoxGeometry, BufferGeometry, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
+import {ACESFilmicToneMapping, BoxGeometry, BufferGeometry, Color, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Group, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshStandardMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
 import {Line2} from 'three/examples/jsm/lines/Line2.js';
 import {LineGeometry} from 'three/examples/jsm/lines/LineGeometry.js';
@@ -99,32 +99,71 @@ export class Renderer extends EventDispatcher {
     };
   }
 
-  public startDistanceMeasurement(e) {
-    const firstPoint = this.onDocumentMouseDown(e);
+  public startDistanceMeasurement(
+      e, measurementHexColor = '0x000000', selectedHexColor = '0xffff00') {
+    const returnValue =
+        this.onDocumentMouseDown(e, measurementHexColor, selectedHexColor);
+    if (returnValue) {
+      const {
+        point: firstPoint,
+        snapIndicator: firstSnapIndicator,
+      } = returnValue;
 
-    if (firstPoint) {
+      const group = new Group();
+      group.name = 'measurement_group';
+      group.add(firstSnapIndicator);
+
+      const scene = this.scenes.values().next().value;
+      scene.add(group);
+      scene.isDirty = true;
+
       const endDistanceMeasurement = _e => {
-        const secondPoint = this.onDocumentMouseDown(_e);
-        if (secondPoint) {
+        const returnValue2 =
+            this.onDocumentMouseDown(_e, measurementHexColor, selectedHexColor);
+        if (returnValue2) {
+          const {
+            point: secondPoint,
+            snapIndicator: secondSnapIndicator,
+          } = returnValue2;
+
           const positions = [];
+          const geometry = new LineGeometry();
+
+
           positions.push(firstPoint.x, firstPoint.y, firstPoint.z);
           positions.push(secondPoint.x, secondPoint.y, secondPoint.z);
 
-          const geometry = new LineGeometry();
-          geometry.setPositions(positions);
-          // geometry.setColors( colors );
+          const setColors =
+              (hex) => {
+                const colors = [];
+                const color1 = new Color();
+                const color2 = new Color();
+                color1.setHex(hex);
+                color2.setHex(hex);
+                colors.push(color1.r, color1.g, color1.b);
+                colors.push(color2.r, color2.g, color2.b);
+                geometry.setColors(colors);
+              }
 
+                       geometry.setPositions(positions);
+          setColors(measurementHexColor);
           const matLine = new LineMaterial({
-            color: 0x000000,
+            color: 0xffffff,   // doesn't do anything lol
             linewidth: 0.005,  // in pixels
             vertexColors: true,
-            dashed: false
+            dashed: false,
           });
 
           const line = new Line2(geometry, matLine);
           line.computeLineDistances();
           // line.scale.set( 1, 1, 1 );
           line.name = 'measurement_line';
+          line.highlight = () => {
+            setColors(selectedHexColor);
+          };
+          line.unhighlight = () => {
+            setColors(measurementHexColor);
+          };
 
 
           // const material = new LineBasicMaterial({
@@ -151,7 +190,7 @@ export class Renderer extends EventDispatcher {
           // //   // console.log('onbefore!!!!!!!!');
           // //   renderer.clearDepth();
           // // };
-          const scene = this.scenes.values().next().value;
+
           // scene.traverse(child => {
           //   if (child.isMesh && child.name !== 'measurement_line') {
           //     // child.material.depthWrite = false;
@@ -160,29 +199,45 @@ export class Renderer extends EventDispatcher {
           //     // child.material.polygonOffsetFactor = 1;
           //   }
           // });
-          scene.add(line);
+          // scene.add(line);
 
+          // midpoint
+          // const snapIndicator = new Mesh(
+          //     new SphereGeometry(0.04),
+          //     new MeshStandardMaterial({color: 0xff0000}),
+          // );
+          // snapIndicator.name = 'measurement_line';
 
-          const snapIndicator = new Mesh(
-              new SphereGeometry(0.04),
-              new MeshBasicMaterial({color: 0xff0000}),
-          );
-          snapIndicator.name = 'measurement_line';
-          scene.add(snapIndicator);
+          group.add(secondSnapIndicator);
+          group.add(line);
 
-          // https://stackoverflow.com/a/58580387
-          let dir = secondPoint.clone().sub(firstPoint);
-          const length = dir.length();
-          dir = dir.normalize().multiplyScalar(length * .5);
-          const midPoint = firstPoint.clone().add(dir);
+          // // https://stackoverflow.com/a/58580387
+          // let dir = secondPoint.clone().sub(firstPoint);
+          // const length = dir.length();
+          // dir = dir.normalize().multiplyScalar(length * .5);
+          // const midPoint = firstPoint.clone().add(dir);
 
-          snapIndicator.position.copy(midPoint);
+          // snapIndicator.position.copy(midPoint);
 
-          const newMidPoint = midPoint.clone();
-          newMidPoint.project(scene.getCamera());
+          // const newMidPoint = midPoint.clone();
+          // newMidPoint.project(scene.getCamera());
+          scene.isDirty = true;
+
           return {
-            midPoint: newMidPoint,
+            selectMeasurement: () => {
+              group.children.forEach(mesh => {
+                mesh.highlight();
+              });
+              scene.isDirty = true;
+            },
+            deselectMeasurement: () => {
+              group.children.forEach(mesh => {
+                mesh.unhighlight();
+              });
+              scene.isDirty = true;
+            }
           };
+
         } else {
           return endDistanceMeasurement;
         }
@@ -191,7 +246,7 @@ export class Renderer extends EventDispatcher {
     return null;
   }
 
-  public onDocumentMouseDown(event) {
+  public onDocumentMouseDown(event, measurementHexColor, selectedHexColor) {
     const pos = this.getCanvasRelativePosition(event);
     const mouse = {
       x: (pos.x / this.canvasElement.width) * 2 - 1,
@@ -205,26 +260,33 @@ export class Renderer extends EventDispatcher {
     // calculate objects intersecting the picking ray
     // scene.children(child => child.name !== 'measurement_line');
     const intersects = raycaster.intersectObjects(
-        scene.children.filter(child => child.name !== 'measurement_line'),
+        scene.children.filter(child => child.name !== 'measurement_group'),
         true);
     const firstInt = intersects[0];
-    console.log('firstInt', firstInt);
     if (typeof firstInt !== 'undefined') {
       const snapIndicator = new Mesh(
-          new SphereGeometry(0.04),
-          new MeshBasicMaterial({color: 0xff0000}),
+          new SphereGeometry(0.03),
+          new MeshBasicMaterial(),
       );
-      snapIndicator.name = 'measurement_line';
-      scene.add(snapIndicator);
+      snapIndicator.material.color.setHex(measurementHexColor);
+      snapIndicator.highlight =
+          () => {
+            console.log('highlight', selectedHexColor);
+            snapIndicator.material.color.setHex(selectedHexColor);
+          } snapIndicator.unhighlight =
+              () => {
+                console.log('unhighlight', measurementHexColor);
+                snapIndicator.material.color.setHex(measurementHexColor);
+              }
 
-      // point is in world space
-      snapIndicator.position.copy(firstInt.point);
+                    // point is in world space
+                    snapIndicator.position.copy(firstInt.point);
       // // if we wanted local space then we would use this
       // firstInt.object.worldToLocal(firstInt.point.clone())
 
-      // For re-rendering
-      scene.isDirty = true;
-      return firstInt.point.clone();
+      return {
+        point: firstInt.point.clone(), snapIndicator,
+      }
     }
     return null;
   }
