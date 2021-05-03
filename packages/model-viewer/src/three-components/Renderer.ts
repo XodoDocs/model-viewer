@@ -100,17 +100,20 @@ export class Renderer extends EventDispatcher {
   }
 
   public startDistanceMeasurement(
-      e, measurementHexColor = '0x000000', selectedHexColor = '0xffff00') {
-    const returnValue =
-        this.onDocumentMouseDown(e, measurementHexColor, selectedHexColor);
-    if (returnValue) {
-      const {
-        point: firstPoint,
-        snapIndicator: firstSnapIndicator,
-      } = returnValue;
+      e,
+      measurementHexColor = '0x000000',
+      selectedHexColor = '0xffff00',
+  ) {
+    const {
+      hit: startHit,
+      point: firstPoint,
+      snapIndicator: firstSnapIndicator,
+    } = this.onDocumentMouseDown(e, measurementHexColor, selectedHexColor);
 
+    if (startHit) {
       const group = new Group();
       group.name = 'measurement_group';
+      firstSnapIndicator.name = 'measurement_entity';
       group.add(firstSnapIndicator);
 
       const scene = this.scenes.values().next().value;
@@ -118,14 +121,16 @@ export class Renderer extends EventDispatcher {
       scene.isDirty = true;
 
       const endDistanceMeasurement = _e => {
-        const returnValue2 =
-            this.onDocumentMouseDown(_e, measurementHexColor, selectedHexColor);
-        if (returnValue2) {
-          const {
-            point: secondPoint,
-            snapIndicator: secondSnapIndicator,
-          } = returnValue2;
+        const {
+          hit: endHit,
+          point: secondPoint,
+          snapIndicator: secondSnapIndicator,
+        } = this.onDocumentMouseDown(_e, measurementHexColor, selectedHexColor);
 
+        if (!endHit)
+          return {hit: false};
+
+        if (endHit) {
           const positions = [];
           const geometry = new LineGeometry();
 
@@ -133,19 +138,18 @@ export class Renderer extends EventDispatcher {
           positions.push(firstPoint.x, firstPoint.y, firstPoint.z);
           positions.push(secondPoint.x, secondPoint.y, secondPoint.z);
 
-          const setColors =
-              (hex) => {
-                const colors = [];
-                const color1 = new Color();
-                const color2 = new Color();
-                color1.setHex(hex);
-                color2.setHex(hex);
-                colors.push(color1.r, color1.g, color1.b);
-                colors.push(color2.r, color2.g, color2.b);
-                geometry.setColors(colors);
-              }
+          const setColors = (hex) => {
+            const colors = [];
+            const color1 = new Color();
+            const color2 = new Color();
+            color1.setHex(hex);
+            color2.setHex(hex);
+            colors.push(color1.r, color1.g, color1.b);
+            colors.push(color2.r, color2.g, color2.b);
+            geometry.setColors(colors);
+          };
 
-                       geometry.setPositions(positions);
+          geometry.setPositions(positions);
           setColors(measurementHexColor);
           const matLine = new LineMaterial({
             color: 0xffffff,   // doesn't do anything lol
@@ -165,49 +169,8 @@ export class Renderer extends EventDispatcher {
             setColors(measurementHexColor);
           };
 
-
-          // const material = new LineBasicMaterial({
-          //   // color: 0xffffff,
-          //   color: 0xfff0000,
-          //   // linewidth: 500, // doesn't work lol
-          //   // depthTest: false,
-          //   // depthWrite: false,
-          // });
-          // // material.polygonOffset = true;
-          // // material.polygonOffsetUnits = 1;
-          // // material.polygonOffsetFactor = 1;
-          // // material.depthTest = false;
-          // const points = [];
-          // points.push(firstPoint);
-          // points.push(secondPoint);
-          // const geometry = new BufferGeometry().setFromPoints(points);
-          // const line = new Line(geometry, material);
-          // line.name = 'measurement_line';
-          // line.renderOrder = 9999;
-          // // console.log('renderOrder', line.renderOrder);
-          // // line.renderOrder = 999;
-          // // line.onBeforeRender = function( renderer ) {
-          // //   // console.log('onbefore!!!!!!!!');
-          // //   renderer.clearDepth();
-          // // };
-
-          // scene.traverse(child => {
-          //   if (child.isMesh && child.name !== 'measurement_line') {
-          //     // child.material.depthWrite = false;
-          //     // child.material.polygonOffset = true;
-          //     // child.material.polygonOffsetUnits = 1;
-          //     // child.material.polygonOffsetFactor = 1;
-          //   }
-          // });
-          // scene.add(line);
-
-          // midpoint
-          // const snapIndicator = new Mesh(
-          //     new SphereGeometry(0.04),
-          //     new MeshStandardMaterial({color: 0xff0000}),
-          // );
-          // snapIndicator.name = 'measurement_line';
-
+          secondSnapIndicator.name = 'measurement_entity';
+          line.name = 'measurement_entity';
           group.add(secondSnapIndicator);
           group.add(line);
 
@@ -224,24 +187,25 @@ export class Renderer extends EventDispatcher {
           scene.isDirty = true;
 
           return {
-            selectMeasurement: () => {
-              group.children.forEach(mesh => {
-                mesh.highlight();
-              });
-              scene.isDirty = true;
-            },
-            deselectMeasurement: () => {
-              group.children.forEach(mesh => {
-                mesh.unhighlight();
-              });
-              scene.isDirty = true;
-            }
+            hit: true, remove3dEntity: () => scene.remove(group);
+            length: secondPoint.clone().sub(firstPoint).length(),
+                selectMeasurement: () => {
+                  group.children.forEach(mesh => {
+                    mesh.highlight();
+                  });
+                  scene.isDirty = true;
+                }, deselectMeasurement: () => {
+                  group.children.forEach(mesh => {
+                    mesh.unhighlight();
+                  });
+                  scene.isDirty = true;
+                }
           };
-
-        } else {
-          return endDistanceMeasurement;
         }
-      } return endDistanceMeasurement;
+      };
+      return {
+        hit: true, endDistanceMeasurement, cleanup: () => scene.remove(group),
+      }
     }
     return null;
   }
@@ -257,10 +221,20 @@ export class Renderer extends EventDispatcher {
     // update the picking ray with the camera and mouse position
     raycaster.setFromCamera(mouse, scene.getCamera());
 
+    const sceneChildren = [];
+    scene.traverse(child => {
+      if (child.name !== 'measurement_entity' && child.name !== 'wireframe') {
+        if (child.isMesh) {
+          sceneChildren.push(child);
+        }
+      }
+    });
+
     // calculate objects intersecting the picking ray
     const intersects = raycaster.intersectObjects(
-        scene.children.filter(child => child.name !== 'measurement_group'),
-        true);
+        // scene.children.filter(child => child.name !== 'measurement_group'),
+        sceneChildren,
+    );
     const firstInt = intersects[0];
     if (typeof firstInt !== 'undefined') {
       const snapIndicator = new Mesh(
@@ -269,11 +243,9 @@ export class Renderer extends EventDispatcher {
       );
       snapIndicator.material.color.setHex(measurementHexColor);
       snapIndicator.highlight = () => {
-        console.log('highlight', selectedHexColor);
         snapIndicator.material.color.setHex(selectedHexColor);
       };
       snapIndicator.unhighlight = () => {
-        console.log('unhighlight', measurementHexColor);
         snapIndicator.material.color.setHex(measurementHexColor);
       };
 
@@ -283,17 +255,21 @@ export class Renderer extends EventDispatcher {
       // firstInt.object.worldToLocal(firstInt.point.clone())
 
       return {
-        point: firstInt.point.clone(), snapIndicator,
-      }
+        hit: true,
+        point: firstInt.point.clone(),
+        snapIndicator,
+      };
     }
-    return null;
+    return {
+      hit: false,
+    };
   }
 
   public setVertexNormals() {
     const scene = this.scenes.values().next().value;
     const funcs = [];
     scene.traverse(child => {
-      if (child.isMesh) {
+      if (child.isMesh && child.name !== 'measurement_entity') {
         const vn = new VertexNormalsHelper(child, 0.05, 0xff0000);
         // vn.name = 'vertexNormalHelper';
         // const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
@@ -318,7 +294,7 @@ export class Renderer extends EventDispatcher {
         new MeshBasicMaterial({color: 0xffffff, wireframe: true});
 
     scene.traverse(child => {
-      if (child.isMesh) {
+      if (child.isMesh && child.name !== 'measurement_entity') {
         if (willSet) {
           child.oldMaterial = child.material;
           child.material = wireframeMaterial;
@@ -338,7 +314,7 @@ export class Renderer extends EventDispatcher {
     const scene = this.scenes.values().next().value;
     const funcs = [];
     scene.traverse(child => {
-      if (child.isMesh) {
+      if (child.isMesh && child.name !== 'measurement_entity') {
         const wireframeGeometry = new WireframeGeometry(child.geometry);
         const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
         const wireframe =
@@ -462,9 +438,6 @@ export class Renderer extends EventDispatcher {
 
     this.canvasElement = document.createElement('canvas');
     this.canvasElement.id = 'webgl-canvas';
-
-    // window.addEventListener(
-    //     'mousedown', this.onDocumentMouseDown.bind(this), false);
 
     this.canvas3D = USE_OFFSCREEN_CANVAS ?
         this.canvasElement.transferControlToOffscreen() :
