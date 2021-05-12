@@ -138,7 +138,7 @@ export class Renderer extends EventDispatcher {
           positions.push(firstPoint.x, firstPoint.y, firstPoint.z);
           positions.push(secondPoint.x, secondPoint.y, secondPoint.z);
 
-          const setColors = (hex) => {
+          const setColors = hex => {
             const colors = [];
             const color1 = new Color();
             const color2 = new Color();
@@ -147,6 +147,9 @@ export class Renderer extends EventDispatcher {
             colors.push(color1.r, color1.g, color1.b);
             colors.push(color2.r, color2.g, color2.b);
             geometry.setColors(colors);
+            firstSnapIndicator.material.color.setHex(hex);
+            secondSnapIndicator.material.color.setHex(hex);
+            scene.isDirty = true;
           };
 
           geometry.setPositions(positions);
@@ -187,19 +190,25 @@ export class Renderer extends EventDispatcher {
           scene.isDirty = true;
 
           return {
-            hit: true, remove3dEntity: () => scene.remove(group);
+            hit: true,
+            remove3dEntity: () => scene.remove(group),
             length: secondPoint.clone().sub(firstPoint).length(),
-                selectMeasurement: () => {
-                  group.children.forEach(mesh => {
-                    mesh.highlight();
-                  });
-                  scene.isDirty = true;
-                }, deselectMeasurement: () => {
-                  group.children.forEach(mesh => {
-                    mesh.unhighlight();
-                  });
-                  scene.isDirty = true;
-                }
+            selectMeasurement: () => {
+              group.children.forEach(mesh => {
+                mesh.highlight();
+              });
+              scene.isDirty = true;
+            },
+            deselectMeasurement: () => {
+              group.children.forEach(mesh => {
+                mesh.unhighlight();
+              });
+              scene.isDirty = true;
+            },
+            updateDefaultColor: updatedHex => {
+              measurementHexColor = updatedHex;
+              setColors(updatedHex);
+            },
           };
         }
       };
