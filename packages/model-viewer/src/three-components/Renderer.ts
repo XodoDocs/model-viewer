@@ -549,7 +549,6 @@ export class Renderer extends EventDispatcher {
 
     let children = scene.children;
     while (children && children.length === 1) {
-      console.log('children', children);
       children = children[0].children;
     }
     return children;
