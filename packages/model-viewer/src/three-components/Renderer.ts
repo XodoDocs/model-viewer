@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, BoxGeometry, BufferGeometry, Color, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Group, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshStandardMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
+import {ACESFilmicToneMapping, BackSide, BoxGeometry, BufferGeometry, Color, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Group, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshStandardMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
 import {Line2} from 'three/examples/jsm/lines/Line2.js';
 import {LineGeometry} from 'three/examples/jsm/lines/LineGeometry.js';
@@ -121,13 +121,16 @@ export class Renderer extends EventDispatcher {
   }
 
   public createDistanceMeasurement({
-    firstPoint,
-    secondPoint,
+    firstPoint: point1,
+    secondPoint: point2,
     measurementHexColor = '0x000000',
     selectedHexColor = '0xffff00',
   }) {
     const group = new Group();
     group.name = 'measurement_group';
+
+    const firstPoint = new Vector3(point1.x, point1.y, point1.z);
+    const secondPoint = new Vector3(point2.x, point2.y, point2.z);
 
     const firstMeasurePoint = this.createMeasurePoint(
         firstPoint, measurementHexColor, selectedHexColor)
@@ -179,9 +182,17 @@ export class Renderer extends EventDispatcher {
     };
     group.add(line);
 
+    // const outlineMaterial1 = new MeshBasicMaterial( { color: 0xff0000, side:
+    // BackSide } ); const outlineMesh1 = new Mesh( geometry, outlineMaterial1
+    // ); outlineMesh1.position.copy(line.position);
+    // outlineMesh1.scale.multiplyScalar(1.95);
+
+
+
     const scene = this.scenes.values().next().value;
     setColors(measurementHexColor);
     scene.add(group);
+    // scene.add(outlineMesh1);
     scene.isDirty = true;
 
     // // Midpoint: https://stackoverflow.com/a/58580387
