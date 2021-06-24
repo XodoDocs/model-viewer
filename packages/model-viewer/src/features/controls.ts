@@ -408,6 +408,10 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
       return this[$renderer].setVertexNormals();
     }
 
+    setEdges() {
+      return this[$renderer].setEdges();
+    }
+
     // toggleWireframe(): void {
     //   this[$renderer].toggleWireframe();
     // }

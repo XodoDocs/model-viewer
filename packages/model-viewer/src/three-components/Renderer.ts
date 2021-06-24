@@ -318,6 +318,26 @@ export class Renderer extends EventDispatcher {
     };
   }
 
+  public setEdges() {
+    const scene = this.scenes.values().next().value;
+    const funcs = [];
+    scene.traverse(child => {
+      if (child.isMesh) {
+        // only show edges with 15 degrees or more angle between faces
+        const thresholdAngle = 15;
+        const edgeGeometry = new EdgesGeometry(child.geometry, thresholdAngle);
+        const line = new LineSegments(
+            edgeGeometry, new LineBasicMaterial({color: 0xffffff}));
+
+        child.add(line);
+        funcs.push(() => child.remove(line));
+      }
+    });
+    return () => {
+      funcs.forEach(func => func());
+    };
+  }
+
   public setVertexNormals() {
     const scene = this.scenes.values().next().value;
     const funcs = [];
