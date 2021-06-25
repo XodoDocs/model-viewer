@@ -102,18 +102,12 @@ export class Renderer extends EventDispatcher {
   }
 
 
-  public createMeasurePoint(point, measurementHexColor, selectedHexColor) {
+  public createMeasurePoint(point, measurementHexColor) {
     const measurePoint = new Mesh(
         new SphereGeometry(0.03),
         new MeshBasicMaterial(),
     );
     measurePoint.material.color.setHex(measurementHexColor);
-    measurePoint.highlight = () => {
-      measurePoint.material.color.setHex(selectedHexColor);
-    };
-    measurePoint.unhighlight = () => {
-      measurePoint.material.color.setHex(measurementHexColor);
-    };
 
     // point is in world space
     measurePoint.position.copy(point);
@@ -125,8 +119,6 @@ export class Renderer extends EventDispatcher {
   public createDistanceMeasurement({
     firstPoint: point1,
     secondPoint: point2,
-    measurementHexColor = '0x000000',
-    selectedHexColor = '0xffff00',
   }) {
     // const group = new Group();
     // group.name = 'measurement_group';
@@ -235,21 +227,25 @@ export class Renderer extends EventDispatcher {
     }
   }
 
-  public startDistanceMeasurementSkeleton(
-      e,
-      measurementHexColor = '0x000000',
-      selectedHexColor = '0xffff00',
-  ) {
+  public startDistanceMeasurementSkeleton(e, {
+    snapToEdge = false,
+    measurementHexColor = '0x000000',
+  }) {
+    console.log('--------snapToEdge', snapToEdge, measurementHexColor);
+
     const {
       hit: startHit,
-      point: firstPoint,
-    } = this.onDocumentMouseDown(e);
+      // point: firstPoint,
+      intersection: firstInt,
+    } = this.onDocumentMouseDown(e, {snapToEdge});
 
     if (startHit) {
+      const firstPoint = this.getClosestVertexToIntersection(firstInt);
+
       const group = new Group();
       group.name = 'measurement_group';
-      const firstSnapIndicator = this.createMeasurePoint(
-          firstPoint, measurementHexColor, selectedHexColor);
+      const firstSnapIndicator =
+          this.createMeasurePoint(firstPoint, measurementHexColor);
       firstSnapIndicator.name = 'measurement_entity';
       group.add(firstSnapIndicator);
 
@@ -260,8 +256,11 @@ export class Renderer extends EventDispatcher {
       const completeDistanceMeasurementSkeleton = _e => {
         const {
           hit: endHit,
-          point: secondPoint,
+          // point: secondPoint,
+          intersection: secondInt,
         } = this.onDocumentMouseDown(_e);
+
+        const secondPoint = this.getClosestVertexToIntersection(secondInt);
 
         return {
           hit: endHit,
@@ -281,7 +280,28 @@ export class Renderer extends EventDispatcher {
     return null;
   }
 
-  public onDocumentMouseDown(event, measurementHexColor, selectedHexColor) {
+  private getClosestVertexToIntersection(intersection) {
+    const faceData =
+        [intersection.face.a, intersection.face.b, intersection.face.c];
+
+    const {position} = intersection.object.geometry.attributes;
+    const vertices = faceData.map(vId => {
+      const vector = new Vector3();
+      vector.fromBufferAttribute(position, vId);
+      vector.distance = intersection.object.localToWorld(vector.clone())
+                            .distanceTo(intersection.point);
+      return vector;
+    })
+
+    vertices.sort(function(a, b) {
+      return a.distance - b.distance;
+    });
+
+    const worldPoint = intersection.object.localToWorld(vertices[0]);
+    return worldPoint;
+  }
+
+  public onDocumentMouseDown(event, {snapToEdge = false} = {}) {
     const pos = this.getCanvasRelativePosition(event);
     const mouse = {
       x: (pos.x / this.canvasElement.width) * 2 - 1,
@@ -300,6 +320,7 @@ export class Renderer extends EventDispatcher {
         }
       }
     });
+    console.log('sceneChildren', sceneChildren, snapToEdge);
 
     // calculate objects intersecting the picking ray
     const intersects = raycaster.intersectObjects(
@@ -308,9 +329,39 @@ export class Renderer extends EventDispatcher {
     );
     const firstInt = intersects[0];
     if (typeof firstInt !== 'undefined') {
+      // const faceData = [firstInt.face.a, firstInt.face.b, firstInt.face.c];
+
+      // const {position} = firstInt.object.geometry.attributes;
+      // const vertices = faceData.map(vId => {
+      //   const vector = new Vector3();
+      //   vector.fromBufferAttribute(position, vId);
+      //   vector.distance = firstInt.object.localToWorld(vector.clone())
+      //                         .distanceTo(firstInt.point);
+      //   return vector;
+      // })
+
+      // vertices.sort(function(a, b) {
+      //   return a.distance - b.distance;
+      // })
+
+
+      // const sphere = new Mesh(
+      //   new SphereGeometry(0.04),
+      //   new MeshBasicMaterial({color: 0xff0000}),
+      // );
+
+      // scene.add(sphere);
+
+      // // firstInt.object.worldToLocal(firstInt.point.clone())
+      // // firstInt.object.add(sphere);
+      // const worldPoint = firstInt.object.localToWorld(vertices[0]);
+      // sphere.position.copy(worldPoint);
+
+
       return {
         hit: true,
         point: firstInt.point.clone(),
+        intersection: firstInt,
         // snapIndicator: this.createMeasurePoint(firstInt.point,
         // measurementHexColor, selectedHexColor),
       };
@@ -330,6 +381,7 @@ export class Renderer extends EventDispatcher {
         const edgeGeometry = new EdgesGeometry(child.geometry, thresholdAngle);
         const line = new LineSegments(
             edgeGeometry, new LineBasicMaterial({color: 0xffffff}));
+        line.name = 'edge_entity';
 
         child.add(line);
         funcs.push(() => child.remove(line));
