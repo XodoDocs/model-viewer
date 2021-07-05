@@ -408,6 +408,10 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
       return this[$renderer].setVertexNormals();
     }
 
+    setInvisibleEdges() {
+      return this[$renderer].setInvisibleEdges();
+    }
+
     setEdges() {
       return this[$renderer].setEdges();
     }
@@ -420,10 +424,27 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
     //   this[$renderer].toggleWireframeAndModel();
     // }
 
+    hoverDistanceMeasurementSkeleton(
+        e,
+        {
+          measurementHexColor,
+          snapToEdge,
+        },
+    ) {
+      return this[$renderer].hoverDistanceMeasurementSkeleton(
+          e,
+          {
+            measurementHexColor,
+            snapToEdge,
+          },
+      );
+    };
+
+
     startDistanceMeasurementSkeleton(e, {
       snapToEdge,
       measurementHexColor,
-    }): Array<Object3D> {
+    }) {
       return this[$renderer].startDistanceMeasurementSkeleton(
           e,
           {

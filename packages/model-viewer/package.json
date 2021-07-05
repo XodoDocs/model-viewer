@@ -106,5 +106,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "three-mesh-bvh": "^0.4.1"
   }
 }

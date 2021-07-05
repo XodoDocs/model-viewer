@@ -16,6 +16,7 @@
  */
 
 import {ACESFilmicToneMapping, BackSide, BoxGeometry, BufferGeometry, Color, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Group, Line, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshStandardMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
+import {acceleratedRaycast, MeshBVH} from 'three-mesh-bvh';
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
 import {Line2} from 'three/examples/jsm/lines/Line2.js';
 import {LineGeometry} from 'three/examples/jsm/lines/LineGeometry.js';
@@ -90,6 +91,9 @@ export class Renderer extends EventDispatcher {
   public dpr = 1;
 
   private foo = [];
+  private bvhs = [];
+  private edgeLines = [];
+
   public isWireframe = false;
   public isWireframeAndModel = false;
 
@@ -227,78 +231,214 @@ export class Renderer extends EventDispatcher {
     }
   }
 
+  public hoverDistanceMeasurementSkeleton(
+      e, {measurementHexColor, snapToEdge}) {
+    const {
+      hit,
+      intersection,
+    } = this.onDocumentMouseDown(e, {snapToEdge});
+
+    if (hit) {
+      const point =
+          this.getClosestVertexToIntersection(intersection, snapToEdge);
+      return this.makeHoverPoint({
+        point,
+        measurementHexColor,
+      });
+    }
+    return () => {};
+  }
+
+  private makeHoverPoint({
+    point,
+    measurementHexColor,
+  }) {
+    const snapIndicator = this.createMeasurePoint(point, measurementHexColor);
+    const scene = this.scenes.values().next().value;
+    scene.add(snapIndicator);
+    scene.isDirty = true;
+
+    return () => {
+      scene.remove(snapIndicator);
+    }
+  }
+
+  private startDistanceMeasurementSkeleton2(e, {
+    point: firstPoint,
+    measurementHexColor,
+    snapToEdge,
+  }) {
+    const group = new Group();
+    group.name = 'measurement_group';
+    const firstSnapIndicator =
+        this.createMeasurePoint(firstPoint, measurementHexColor);
+    firstSnapIndicator.name = 'measurement_entity';
+    group.add(firstSnapIndicator);
+
+    const scene = this.scenes.values().next().value;
+    scene.add(group);
+    scene.isDirty = true;
+
+    const completeDistanceMeasurementSkeleton = _e => {
+      const {
+        hit: endHit,
+        // point: secondPoint,
+        intersection: secondInt,
+      } = this.onDocumentMouseDown(_e);
+
+      const secondPoint =
+          this.getClosestVertexToIntersection(secondInt, snapToEdge);
+
+      return {
+        hit: endHit,
+        firstPoint,
+        secondPoint,
+      };
+    };
+    return {
+      hit: true,
+      completeDistanceMeasurementSkeleton,
+      removeSkeleton: () => {
+        scene.remove(group);
+        scene.isDirty = true;
+      },
+    };
+  }
+
   public startDistanceMeasurementSkeleton(e, {
     snapToEdge = false,
     measurementHexColor = '0x000000',
   }) {
-    console.log('--------snapToEdge', snapToEdge, measurementHexColor);
-
     const {
       hit: startHit,
-      // point: firstPoint,
       intersection: firstInt,
     } = this.onDocumentMouseDown(e, {snapToEdge});
 
     if (startHit) {
-      const firstPoint = this.getClosestVertexToIntersection(firstInt);
+      const firstPoint =
+          this.getClosestVertexToIntersection(firstInt, snapToEdge);
+      return this.startDistanceMeasurementSkeleton2(e, {
+        point: firstPoint,
+        measurementHexColor,
+        snapToEdge,
+      });
 
-      const group = new Group();
-      group.name = 'measurement_group';
-      const firstSnapIndicator =
-          this.createMeasurePoint(firstPoint, measurementHexColor);
-      firstSnapIndicator.name = 'measurement_entity';
-      group.add(firstSnapIndicator);
 
-      const scene = this.scenes.values().next().value;
-      scene.add(group);
-      scene.isDirty = true;
+      // const group = new Group();
+      // group.name = 'measurement_group';
+      // const firstSnapIndicator =
+      //     this.createMeasurePoint(firstPoint, measurementHexColor);
+      // firstSnapIndicator.name = 'measurement_entity';
+      // group.add(firstSnapIndicator);
 
-      const completeDistanceMeasurementSkeleton = _e => {
-        const {
-          hit: endHit,
-          // point: secondPoint,
-          intersection: secondInt,
-        } = this.onDocumentMouseDown(_e);
+      // const scene = this.scenes.values().next().value;
+      // scene.add(group);
+      // scene.isDirty = true;
 
-        const secondPoint = this.getClosestVertexToIntersection(secondInt);
+      // const completeDistanceMeasurementSkeleton = _e => {
+      //   const {
+      //     hit: endHit,
+      //     // point: secondPoint,
+      //     intersection: secondInt,
+      //   } = this.onDocumentMouseDown(_e);
 
-        return {
-          hit: endHit,
-          firstPoint,
-          secondPoint,
-        };
-      };
-      return {
-        hit: true,
-        completeDistanceMeasurementSkeleton,
-        removeSkeleton: () => {
-          scene.remove(group);
-          scene.isDirty = true;
-        },
-      };
+      //   const secondPoint = this.getClosestVertexToIntersection(secondInt,
+      //   snapToEdge);
+
+      //   return {
+      //     hit: endHit,
+      //     firstPoint,
+      //     secondPoint,
+      //   };
+      // };
+      // return {
+      //   hit: true,
+      //   completeDistanceMeasurementSkeleton,
+      //   removeSkeleton: () => {
+      //     scene.remove(group);
+      //     scene.isDirty = true;
+      //   },
+      // };
     }
     return null;
   }
 
-  private getClosestVertexToIntersection(intersection) {
-    const faceData =
-        [intersection.face.a, intersection.face.b, intersection.face.c];
+  private getClosestVertexToIntersection(intersection, snapToEdge) {
+    if (snapToEdge) {
+      const clickPoint = intersection.point;
+      // console.log('snapToEdge', clickPoint, this.bvhs);
 
-    const {position} = intersection.object.geometry.attributes;
-    const vertices = faceData.map(vId => {
-      const vector = new Vector3();
-      vector.fromBufferAttribute(position, vId);
-      vector.distance = intersection.object.localToWorld(vector.clone())
-                            .distanceTo(intersection.point);
-      return vector;
-    })
+      // const data = [];
+      // this.bvhs.forEach(({ bvh, mesh }) => {
+      //   // console.log(mesh, bvh.closestPointToPoint);
+      //   const target = new Vector3();
+      //   const distance = bvh.closestPointToPoint(mesh, clickPoint, target)
+      //   console.log('distance', distance, target, mesh.localToWorld);
 
-    vertices.sort(function(a, b) {
-      return a.distance - b.distance;
-    });
+      //   data.push({
+      //     distance,
+      //     vector: target,
+      //     mesh,
+      //   });
+      // });
 
-    const worldPoint = intersection.object.localToWorld(vertices[0]);
-    return worldPoint;
+      // data.sort((a, b) => {
+      //   return a.distance - b.distance;
+      // });
+
+      // const worldPoint = data[0].mesh.localToWorld(data[0].vector);
+      // return worldPoint;
+
+      const data = this.bvhs.map(({mesh}) => {
+        const {position} = mesh.geometry.attributes;
+        const vertices = [];
+        for (let i = 0; i < position.count; i++) {
+          const vector = new Vector3();
+          vector.fromBufferAttribute(position, i);
+          // clone because for some reason things go weird if we don't
+          // maybe localToWorld is modifying the vector
+          vector.distance = intersection.object.localToWorld(vector.clone())
+                                .distanceTo(intersection.point);
+          vertices.push(vector);
+        }
+
+        if (vertices.length === 0) {
+          return {distance: Infinity};
+        }
+
+        vertices.sort(function(a, b) {
+          return a.distance - b.distance;
+        });
+
+        return {firstVertex: vertices[0], distance: vertices[0].distance};
+      });
+
+      data.sort(function(a, b) {
+        return a.distance - b.distance;
+      });
+
+      return intersection.object.localToWorld(data[0].firstVertex.clone());
+    } else {
+      return intersection.point;
+      // const faceData =
+      //   [intersection.face.a, intersection.face.b, intersection.face.c];
+
+      // const {position} = intersection.object.geometry.attributes;
+      // const vertices = faceData.map(vId => {
+      //   const vector = new Vector3();
+      //   vector.fromBufferAttribute(position, vId);
+      //   vector.distance = intersection.object.localToWorld(vector.clone())
+      //                         .distanceTo(intersection.point);
+      //   return vector;
+      // });
+
+      // vertices.sort(function(a, b) {
+      //   return a.distance - b.distance;
+      // });
+
+      // const worldPoint = intersection.object.localToWorld(vertices[0]);
+      // return worldPoint;
+    }
   }
 
   public onDocumentMouseDown(event, {snapToEdge = false} = {}) {
@@ -360,7 +500,6 @@ export class Renderer extends EventDispatcher {
 
       return {
         hit: true,
-        point: firstInt.point.clone(),
         intersection: firstInt,
         // snapIndicator: this.createMeasurePoint(firstInt.point,
         // measurementHexColor, selectedHexColor),
@@ -372,24 +511,46 @@ export class Renderer extends EventDispatcher {
   }
 
   public setEdges() {
-    const scene = this.scenes.values().next().value;
     const funcs = [];
+    this.edgeLines.forEach(edgeLine => {
+      edgeLine.visible = true;
+      funcs.push(() => edgeLine.visible = false);
+    });
+
+    // const scene = this.scenes.values().next().value;
+    // scene.isDirty = true;
+    return () => {
+      this.edgeLines.forEach(edgeLine => {
+        edgeLine.visible = false;
+      });
+    };
+  }
+
+  public setInvisibleEdges() {
+    const scene = this.scenes.values().next().value;
+    this.bvhs = [];
+    let once = false;
     scene.traverse(child => {
       if (child.isMesh) {
+        once = true;
+        console.log('child', child);
+        // const bvh = new MeshBVH(child.geometry);
         // only show edges with 15 degrees or more angle between faces
         const thresholdAngle = 15;
         const edgeGeometry = new EdgesGeometry(child.geometry, thresholdAngle);
         const line = new LineSegments(
             edgeGeometry, new LineBasicMaterial({color: 0xffffff}));
         line.name = 'edge_entity';
+        line.visible = false;
+        this.edgeLines.push(line);
+
+        // console.log('sphere', this.sphere);
+        // const bvh = new MeshBVH(this.sphere.geometry);
+        this.bvhs.push({mesh: line});
 
         child.add(line);
-        funcs.push(() => child.remove(line));
       }
     });
-    return () => {
-      funcs.forEach(func => func());
-    };
   }
 
   public setVertexNormals() {
@@ -696,19 +857,23 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
-    // const sphere = new Mesh(
+    // this.sphere = new Mesh(
     //     new SphereGeometry(8.0, 32, 32),
     //     new MeshBasicMaterial({
     //       color: 0x00FF00,
     //       wireframe: true,
     //     }),
     // );
-    // sphere.position.set(0, 0, -10);
-    // // sphere.renderOrder = 99999999;
-    // // sphere.onBeforeRender = function( renderer ) {
-    // //   // console.log('onbefore!!!!!!!!');
-    // //   renderer.clearDepth();
-    // // };
+    // this.sphere.geometry.center();
+    // this.sphere.position.set(0, 0, -10);
+    // // const scene = this.scenes.values().next().value;
+    // scene.add(this.sphere);
+
+    // sphere.renderOrder = 99999999;
+    // sphere.onBeforeRender = function( renderer ) {
+    //   // console.log('onbefore!!!!!!!!');
+    //   renderer.clearDepth();
+    // };
     // this.scene2 = new Scene();
     // this.scene2.add(sphere);
 
