@@ -416,46 +416,16 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
       return this[$renderer].setEdges();
     }
 
-    // toggleWireframe(): void {
-    //   this[$renderer].toggleWireframe();
-    // }
-
-    // toggleWireframeAndModel(): void {
-    //   this[$renderer].toggleWireframeAndModel();
-    // }
-
-    hoverDistanceMeasurementSkeleton(
-        e,
-        {
-          measurementHexColor,
-          snapToEdge,
-        },
-    ) {
-      return this[$renderer].hoverDistanceMeasurementSkeleton(
-          e,
-          {
-            measurementHexColor,
-            snapToEdge,
-          },
-      );
-    };
-
-
-    startDistanceMeasurementSkeleton(e, {
-      snapToEdge,
-      measurementHexColor,
-    }) {
-      return this[$renderer].startDistanceMeasurementSkeleton(
-          e,
-          {
-            snapToEdge,
-            measurementHexColor,
-          },
-      );
+    getScreenPoint(...args) {
+      return this[$renderer].getScreenPoint(...args);
     }
 
-    createDistanceMeasurement(params): Array<Object3D> {
-      return this[$renderer].createDistanceMeasurement(params);
+    getMeasurePoint(...args) {
+      return this[$renderer].getMeasurePoint(...args);
+    }
+
+    createDistanceMeasurement(...args): Array<Object3D> {
+      return this[$renderer].createDistanceMeasurement(...args);
     }
 
     getChildren(): Array<Object3D> {
