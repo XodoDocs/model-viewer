@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, BackSide, BoxGeometry, BufferGeometry, Color, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Group, Line, Line3, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshStandardMaterial, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
+import {ACESFilmicToneMapping, BackSide, BoxGeometry, BufferGeometry, Color, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Group, Line, Line3, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshStandardMaterial, Object3D, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
 import {acceleratedRaycast, MeshBVH} from 'three-mesh-bvh';
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
 import {Line2} from 'three/examples/jsm/lines/Line2.js';
@@ -127,15 +127,47 @@ export class Renderer extends EventDispatcher {
     const firstPoint = new Vector3(point1.x, point1.y, point1.z);
     const secondPoint = new Vector3(point2.x, point2.y, point2.z);
 
-    const positions = [];
-    const geometry = new LineGeometry();
-
-    positions.push(firstPoint.x, firstPoint.y, firstPoint.z);
-    positions.push(secondPoint.x, secondPoint.y, secondPoint.z);
-
-    geometry.setPositions(positions);
-
     const scene = this.scenes.values().next().value;
+    // console.log('scene target', scene.getTarget());
+    const target = scene.target;
+
+    // const obj1 = new Object3D();
+    const obj1 = new Mesh(
+        new SphereGeometry(0.03),
+        new MeshBasicMaterial(),
+    );
+    obj1.material.color.setHex('0x000000');
+
+    const obj2 = new Mesh(
+        new SphereGeometry(0.03),
+        new MeshBasicMaterial(),
+    );
+    obj2.material.color.setHex('0x000000');
+    // obj2.identifier = 'id-mything';
+    // obj2.position.set(point2.x, point2.y, point2.z);
+
+    // target.add(obj1);
+
+    // This works for the point above
+    // scene.add(obj1);
+
+    target.add(obj1);
+    obj1.updateMatrixWorld();
+    // const newPoint1 = firstPoint.clone();
+    console.log('firstPoint', firstPoint);
+    obj1.worldToLocal(firstPoint);
+    console.log('firstPoint', firstPoint);
+    obj1.position.copy(firstPoint);
+
+    target.add(obj2);
+    obj2.updateMatrixWorld();
+    // const newPoint2 = secondPoint.clone();
+    console.log('secondPoint', secondPoint);
+    obj2.worldToLocal(secondPoint);
+    console.log('secondPoint', secondPoint);
+    obj2.position.copy(secondPoint);
+
+    scene.isDirty = true;
 
     // // Midpoint: https://stackoverflow.com/a/58580387
     // let dir = secondPoint.clone().sub(firstPoint);
@@ -146,10 +178,9 @@ export class Renderer extends EventDispatcher {
     const getScreenPoints =
         (screenWidth, screenHeight) => {
           return {
-            firstPoint: this.getScreenPoint(
-                firstPoint, screenWidth, screenHeight),
+            firstPoint: this.getScreenPoint(obj1, screenWidth, screenHeight),
                 secondPoint: this.getScreenPoint(
-                    secondPoint, screenWidth, screenHeight),
+                    obj2, screenWidth, screenHeight),
           }
         }
 
@@ -158,14 +189,68 @@ export class Renderer extends EventDispatcher {
     }
   }
 
-  public getScreenPoint(vector, screenWidth, screenHeight) {
+  public getScreenPoint(obj, screenWidth, screenHeight) {
     const scene = this.scenes.values().next().value;
-    const clonedVertex = vector.clone();
-    clonedVertex.project(scene.getCamera());
+    const camera = scene.getCamera();
+    if (scene.autoUpdate === true)
+      scene.updateMatrixWorld();
+    if (camera.parent === null)
+      camera.updateMatrixWorld();
+
+    // camera.updateProjectionMatrix();
+    // camera.updateMatrixWorld()
+    // const clonedVector = obj.position.clone();
+    const clonedVector = new Vector3;
+    clonedVector.setFromMatrixPosition(obj.matrixWorld);
+
+    // Taken from:
+    // https://discourse.threejs.org/t/how-to-converting-world-coordinates-to-2d-mouse-coordinates-in-threejs/2251
+
+    clonedVector.project(camera);
     return {
-      x: (clonedVertex.x + 1) * screenWidth / 2,
-      y: -(clonedVertex.y - 1) * screenHeight / 2,
+      x: (clonedVector.x + 1) * screenWidth / 2,
+      y: -(clonedVector.y - 1) * screenHeight / 2,
     };
+    // obj.updateMatrixWorld();
+    // console.log('obj', obj.position);
+
+    // // console.log('getScreenPoint');
+    // const scene = this.scenes.values().next().value;
+    // const camera = scene.getCamera();
+
+    // if ( scene.autoUpdate === true ) scene.updateMatrixWorld();
+    // if ( camera.parent === null ) camera.updateMatrixWorld();
+
+    // const vector123 = new Vector3();
+    // // const vector123 = obj.position.clone();
+    // // console.log('123', vector123, obj.localToWorld(vector123.clone()));
+    // // console.log('getScreenPoint', obj.matrixWorld.elements)
+    // vector123.setFromMatrixPosition(obj.matrixWorld);
+
+    // // const viewMatrix = new Matrix4();
+    // // const viewProjectionMatrix = new Matrix4();
+    // // viewMatrix.copy( camera.matrixWorldInverse );
+    // // viewProjectionMatrix.multiplyMatrices( camera.projectionMatrix,
+    // viewMatrix );
+
+
+    // const widthHalf = screenWidth / 2, heightHalf = screenHeight / 2;
+    // // const clonedVector = vector.clone();
+
+    // const viewProjectionMatrix = new Matrix4();
+    // const viewMatrix = new Matrix4();
+
+
+    // viewMatrix.copy( camera.matrixWorldInverse );
+    // viewProjectionMatrix.multiplyMatrices( camera.projectionMatrix,
+    // viewMatrix );
+
+    // vector123.applyMatrix4( viewProjectionMatrix );
+
+    // return {
+    //   x: ( vector123.x * widthHalf ) + widthHalf,
+    //   y: - ( vector123.y * heightHalf ) + heightHalf,
+    // }
   }
 
   public getMeasurePoint(e, canvas, {
@@ -197,73 +282,58 @@ export class Renderer extends EventDispatcher {
     );
     const firstInt = intersects[0];
     if (typeof firstInt !== 'undefined') {
-      const vector = this.getClosestVertexToIntersection(firstInt, snapToEdge);
+      const vector = this.getClosestVectorToIntersection(firstInt, snapToEdge);
       return vector;
     }
     return null;
   }
 
-  private getClosestVertexToIntersection(intersection, snapToEdge) {
+  private getClosestVectorToIntersection(intersection, snapToEdge) {
     if (snapToEdge) {
-      const data = this.edgeLines.map(edgeLine => {
+      let closestVector = new Vector3();
+      let smallestDistance = Infinity;
+      const line = new Line3();
+      const closestPointPerLine = new Vector3();
+      this.edgeLines.forEach(edgeLine => {
         const {position} = edgeLine.geometry.attributes;
-        const vertices = [];
         for (let i = 0; i < position.count - 1; i += 2) {
-          const vector1 = new Vector3();
-          vector1.fromBufferAttribute(position, i);
-          const vector2 = new Vector3();
-          vector2.fromBufferAttribute(position, i + 1);
-          const line = new Line3(vector1, vector2);
-          const closestPoint = new Vector3();
-
+          line.start.fromBufferAttribute(position, i);
+          line.end.fromBufferAttribute(position, i + 1);
           // clamp to true because if not then point is wrong
-          line.closestPointToPoint(intersection.point, true, closestPoint);
-          // clone because for some reason things go weird if we don't
-          // maybe localToWorld is modifying the vector
-          closestPoint.distance =
-              intersection.object.localToWorld(closestPoint.clone())
-                  .distanceTo(intersection.point);
+          line.closestPointToPoint(
+              intersection.point, true, closestPointPerLine);
 
-          vertices.push(closestPoint);
+          intersection.object.localToWorld(closestPointPerLine);
+          const distance = closestPointPerLine.distanceTo(intersection.point);
+
+          if (distance < smallestDistance) {
+            smallestDistance = distance;
+            // clone because closestPointPerLine will get modified
+            closestVector = closestPointPerLine.clone();
+          }
         }
-
-        if (vertices.length === 0) {
-          return {distance: Infinity};
-        }
-
-        vertices.sort(function(a, b) {
-          return a.distance - b.distance;
-        });
-
-        return {firstVertex: vertices[0], distance: vertices[0].distance};
       });
-
-      data.sort(function(a, b) {
-        return a.distance - b.distance;
-      });
-
-      return intersection.object.localToWorld(data[0].firstVertex.clone());
-    } else {
-      return intersection.point;
-      // const faceData =
-      //   [intersection.face.a, intersection.face.b, intersection.face.c];
-
-      // const {position} = intersection.object.geometry.attributes;
-      // const vertices = faceData.map(vId => {
-      //   const vector = new Vector3();
-      //   vector.fromBufferAttribute(position, vId);
-      //   vector.distance = intersection.object.localToWorld(vector.clone())
-      //                         .distanceTo(intersection.point);
-      //   return vector;
-      // });
-
-      // vertices.sort(function(a, b) {
-      //   return a.distance - b.distance;
-      // });
-
-      // const worldPoint = intersection.object.localToWorld(vertices[0]);
-      // return worldPoint;
+      return closestVector;
     }
+    return intersection.point;
+    // const faceData =
+    //   [intersection.face.a, intersection.face.b, intersection.face.c];
+
+    // const {position} = intersection.object.geometry.attributes;
+    // const vertices = faceData.map(vId => {
+    //   const vector = new Vector3();
+    //   vector.fromBufferAttribute(position, vId);
+    //   vector.distance = intersection.object.localToWorld(vector.clone())
+    //                         .distanceTo(intersection.point);
+    //   return vector;
+    // });
+
+    // vertices.sort(function(a, b) {
+    //   return a.distance - b.distance;
+    // });
+
+    // const worldPoint = intersection.object.localToWorld(vertices[0]);
+    // return worldPoint;
   }
 
   public onDocumentMouseDown(event, canvas, {snapToEdge = false} = {}) {
@@ -322,6 +392,11 @@ export class Renderer extends EventDispatcher {
     const scene = this.scenes.values().next().value;
     scene.traverse(child => {
       if (child.isMesh) {
+        // console.log(child.name);
+        // if (child.name === 'm_Barrel' || child.name ===
+        // 'm_Barrel_Material_#30_0') { if (child.name === 'm_WoodenBeams' ||
+        // child.name === 'm_WoodenBeams_Material_#25_0') {
+
         // only show edges with 15 degrees or more angle between faces
         const thresholdAngle = 15;
         const edgeGeometry = new EdgesGeometry(child.geometry, thresholdAngle);
@@ -330,7 +405,28 @@ export class Renderer extends EventDispatcher {
         line.name = 'edge_entity';
         line.visible = false;
         this.edgeLines.push(line);
+        console.log('line', line);
         child.add(line);
+        // this.bvhs.push({ bvh: new MeshBVH(line.geometry), mesh: line });
+        // } else {
+        //   child.visible = false;
+        // }
+        // if (child.name !== 'm_Barrel' && child.name !==
+        // 'm_Barrel_Material_#30_0' && child.isMesh) {
+        //   child.visible = false;
+        // }
+        // // if ((child.name === 'm_Barrel' || child.name ===
+        // 'm_Barrel_Material_#30_0')) {
+        //     // only show edges with 15 degrees or more angle between faces
+        //     const thresholdAngle = 15;
+        //     const edgeGeometry = new EdgesGeometry(child.geometry,
+        //     thresholdAngle); const line = new LineSegments(
+        //         edgeGeometry, new LineBasicMaterial({color: 0xffffff}));
+        //     line.name = 'edge_entity';
+        //     line.visible = false;
+        //     this.edgeLines.push(line);
+        //     child.add(line);
+        // }
       }
     });
   }
@@ -464,9 +560,9 @@ export class Renderer extends EventDispatcher {
     const scene = this.scenes.values().next().value;
 
     let children = scene.children;
-    while (children && children.length === 1) {
-      children = children[0].children;
-    }
+    // while (children && children.length === 1) {
+    //   children = children[0].children;
+    // }
     return children;
   }
 
@@ -638,6 +734,10 @@ export class Renderer extends EventDispatcher {
   }
 
   registerScene(scene: ModelScene) {
+    // const obj = new Object3D();
+    // obj.identifier = 'id-mything';
+    // obj.position.set(0, 0, -10);
+    // scene.add(obj);
     // this.sphere = new Mesh(
     //     new SphereGeometry(8.0, 32, 32),
     //     new MeshBasicMaterial({

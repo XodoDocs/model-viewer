@@ -127,6 +127,7 @@ export class ModelScene extends Scene {
     this.modelContainer.name = 'ModelContainer';
 
     this.target.add(this.modelContainer);
+
     this.mixer = new AnimationMixer(this.modelContainer);
   }
 
@@ -402,6 +403,9 @@ export class ModelScene extends Scene {
       this.target.updateMatrixWorld();
       this.setShadowRotation(this.yaw);
       this.isDirty = true;
+
+      window.dispatchEvent(
+          new CustomEvent('update-target', {detail: {x, y, z}}));
     }
   }
 
