@@ -128,21 +128,22 @@ export class Renderer extends EventDispatcher {
     const secondPoint = new Vector3(point2.x, point2.y, point2.z);
 
     const scene = this.scenes.values().next().value;
-    // console.log('scene target', scene.getTarget());
     const target = scene.target;
 
-    // const obj1 = new Object3D();
-    const obj1 = new Mesh(
-        new SphereGeometry(0.03),
-        new MeshBasicMaterial(),
-    );
-    obj1.material.color.setHex('0x000000');
 
-    const obj2 = new Mesh(
-        new SphereGeometry(0.03),
-        new MeshBasicMaterial(),
-    );
-    obj2.material.color.setHex('0x000000');
+    const obj1 = new Object3D();
+    const obj2 = new Object3D();
+    // const obj1 = new Mesh(
+    //     new SphereGeometry(0.03),
+    //     new MeshBasicMaterial(),
+    // );
+    // obj1.material.color.setHex('0x000000');
+
+    // const obj2 = new Mesh(
+    //     new SphereGeometry(0.03),
+    //     new MeshBasicMaterial(),
+    // );
+    // obj2.material.color.setHex('0x000000');
     // obj2.identifier = 'id-mything';
     // obj2.position.set(point2.x, point2.y, point2.z);
 
@@ -177,82 +178,52 @@ export class Renderer extends EventDispatcher {
 
     const getScreenPoints =
         (screenWidth, screenHeight) => {
+          const camera = scene.getCamera();
+          if (scene.autoUpdate === true)
+            scene.updateMatrixWorld();
+          if (camera.parent === null)
+            camera.updateMatrixWorld();
+
+          const firstVector = new Vector3();
+          firstVector.setFromMatrixPosition(obj1.matrixWorld);
+          const secondVector = new Vector3();
+          secondVector.setFromMatrixPosition(obj2.matrixWorld);
+
+          const firstPoint =
+              this.getScreenPoint(firstVector, screenWidth, screenHeight);
+          const secondPoint =
+              this.getScreenPoint(secondVector, screenWidth, screenHeight);
+
           return {
-            firstPoint: this.getScreenPoint(obj1, screenWidth, screenHeight),
-                secondPoint: this.getScreenPoint(
-                    obj2, screenWidth, screenHeight),
+            firstPoint, secondPoint,
           }
         }
 
     return {
-      getScreenPoints, length: secondPoint.clone().sub(firstPoint).length(),
+      onRemoval: () => {
+        target.remove(obj1);
+        target.remove(obj2);
+        scene.isDirty = true;
+      }, getScreenPoints, length: secondPoint.clone().sub(firstPoint).length(),
     }
   }
 
-  public getScreenPoint(obj, screenWidth, screenHeight) {
+  public getScreenPoint(point, screenWidth, screenHeight) {
     const scene = this.scenes.values().next().value;
     const camera = scene.getCamera();
-    if (scene.autoUpdate === true)
-      scene.updateMatrixWorld();
-    if (camera.parent === null)
-      camera.updateMatrixWorld();
-
-    // camera.updateProjectionMatrix();
-    // camera.updateMatrixWorld()
-    // const clonedVector = obj.position.clone();
     const clonedVector = new Vector3;
-    clonedVector.setFromMatrixPosition(obj.matrixWorld);
-
+    clonedVector.copy(point);
     // Taken from:
     // https://discourse.threejs.org/t/how-to-converting-world-coordinates-to-2d-mouse-coordinates-in-threejs/2251
-
     clonedVector.project(camera);
     return {
       x: (clonedVector.x + 1) * screenWidth / 2,
       y: -(clonedVector.y - 1) * screenHeight / 2,
     };
-    // obj.updateMatrixWorld();
-    // console.log('obj', obj.position);
-
-    // // console.log('getScreenPoint');
-    // const scene = this.scenes.values().next().value;
-    // const camera = scene.getCamera();
-
-    // if ( scene.autoUpdate === true ) scene.updateMatrixWorld();
-    // if ( camera.parent === null ) camera.updateMatrixWorld();
-
-    // const vector123 = new Vector3();
-    // // const vector123 = obj.position.clone();
-    // // console.log('123', vector123, obj.localToWorld(vector123.clone()));
-    // // console.log('getScreenPoint', obj.matrixWorld.elements)
-    // vector123.setFromMatrixPosition(obj.matrixWorld);
-
-    // // const viewMatrix = new Matrix4();
-    // // const viewProjectionMatrix = new Matrix4();
-    // // viewMatrix.copy( camera.matrixWorldInverse );
-    // // viewProjectionMatrix.multiplyMatrices( camera.projectionMatrix,
-    // viewMatrix );
-
-
-    // const widthHalf = screenWidth / 2, heightHalf = screenHeight / 2;
-    // // const clonedVector = vector.clone();
-
-    // const viewProjectionMatrix = new Matrix4();
-    // const viewMatrix = new Matrix4();
-
-
-    // viewMatrix.copy( camera.matrixWorldInverse );
-    // viewProjectionMatrix.multiplyMatrices( camera.projectionMatrix,
-    // viewMatrix );
-
-    // vector123.applyMatrix4( viewProjectionMatrix );
-
-    // return {
-    //   x: ( vector123.x * widthHalf ) + widthHalf,
-    //   y: - ( vector123.y * heightHalf ) + heightHalf,
-    // }
   }
 
+  // We have to pass in canvas because the model viewer canvas
+  // changes width and height randomly
   public getMeasurePoint(e, canvas, {
     snapToEdge,
   }) {
@@ -282,13 +253,14 @@ export class Renderer extends EventDispatcher {
     );
     const firstInt = intersects[0];
     if (typeof firstInt !== 'undefined') {
-      const vector = this.getClosestVectorToIntersection(firstInt, snapToEdge);
+      const vector =
+          this.getClosestVectorToIntersection(firstInt, snapToEdge, canvas);
       return vector;
     }
     return null;
   }
 
-  private getClosestVectorToIntersection(intersection, snapToEdge) {
+  private getClosestVectorToIntersection(intersection, snapToEdge, canvas) {
     if (snapToEdge) {
       let closestVector = new Vector3();
       let smallestDistance = Infinity;
@@ -313,6 +285,21 @@ export class Renderer extends EventDispatcher {
           }
         }
       });
+
+      const {width, height} = canvas.getBoundingClientRect();
+      const closestScreenPoint =
+          this.getScreenPoint(closestVector, width, height);
+      const intScreenPoint =
+          this.getScreenPoint(intersection.point, width, height);
+      const dx = closestScreenPoint.x - intScreenPoint.x;
+      const dy = closestScreenPoint.y - intScreenPoint.y;
+      const distanceBetweenScreenPoints = Math.sqrt((dx * dx) + (dy * dy));
+      console.log(dx, dy);
+      console.log('distanceBetweenScreenPoints', distanceBetweenScreenPoints);
+      if (distanceBetweenScreenPoints > 11) {
+        return intersection.point;
+      }
+
       return closestVector;
     }
     return intersection.point;
@@ -401,7 +388,7 @@ export class Renderer extends EventDispatcher {
         const thresholdAngle = 15;
         const edgeGeometry = new EdgesGeometry(child.geometry, thresholdAngle);
         const line = new LineSegments(
-            edgeGeometry, new LineBasicMaterial({color: 0xffffff}));
+            edgeGeometry, new LineBasicMaterial({color: 0xff0000}));
         line.name = 'edge_entity';
         line.visible = false;
         this.edgeLines.push(line);
@@ -560,9 +547,9 @@ export class Renderer extends EventDispatcher {
     const scene = this.scenes.values().next().value;
 
     let children = scene.children;
-    // while (children && children.length === 1) {
-    //   children = children[0].children;
-    // }
+    while (children && children.length === 1) {
+      children = children[0].children;
+    }
     return children;
   }
 
