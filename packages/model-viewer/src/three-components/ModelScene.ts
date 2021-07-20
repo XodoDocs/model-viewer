@@ -116,6 +116,7 @@ export class ModelScene extends Scene {
     // model is loaded and framing is computed.
     this.camera = new PerspectiveCamera(45, 1, 0.1, 100);
     this.camera.name = 'MainCamera';
+    this.camera.layers.enable(1);
 
     this.activeCamera = this.camera;
 
@@ -604,6 +605,7 @@ export class ModelScene extends Scene {
   positionAndNormalFromPoint(pixelPosition: Vector2, object: Object3D = this):
       {position: Vector3, normal: Vector3}|null {
     raycaster.setFromCamera(pixelPosition, this.getCamera());
+
     const hits = raycaster.intersectObject(object, true);
 
     if (hits.length === 0) {

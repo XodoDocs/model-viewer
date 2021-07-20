@@ -384,13 +384,21 @@ export class Renderer extends EventDispatcher {
         // 'm_Barrel_Material_#30_0') { if (child.name === 'm_WoodenBeams' ||
         // child.name === 'm_WoodenBeams_Material_#25_0') {
 
+
+        // if (child.name === 'pCube43' || child.name ===
+        // 'pCube43_Air_condi_0') {
+
+        // 1`}
+
         // only show edges with 15 degrees or more angle between faces
         const thresholdAngle = 15;
         const edgeGeometry = new EdgesGeometry(child.geometry, thresholdAngle);
         const line = new LineSegments(
             edgeGeometry, new LineBasicMaterial({color: 0xff0000}));
-        line.name = 'edge_entity';
+        line.name = 'wv_entity';
         line.visible = false;
+        line.layers.set(1);
+
         this.edgeLines.push(line);
         console.log('line', line);
         child.add(line);
