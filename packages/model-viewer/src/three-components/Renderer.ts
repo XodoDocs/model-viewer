@@ -266,14 +266,15 @@ export class Renderer extends EventDispatcher {
       let smallestDistance = Infinity;
       const line = new Line3();
       const closestPointPerLine = new Vector3();
+      const intLocalPoint = intersection.point.clone();
+      intersection.object.worldToLocal(intLocalPoint);
       this.edgeLines.forEach(edgeLine => {
         const {position} = edgeLine.geometry.attributes;
         for (let i = 0; i < position.count - 1; i += 2) {
           line.start.fromBufferAttribute(position, i);
           line.end.fromBufferAttribute(position, i + 1);
           // clamp to true because if not then point is wrong
-          line.closestPointToPoint(
-              intersection.point, true, closestPointPerLine);
+          line.closestPointToPoint(intLocalPoint, true, closestPointPerLine);
 
           intersection.object.localToWorld(closestPointPerLine);
           const distance = closestPointPerLine.distanceTo(intersection.point);
