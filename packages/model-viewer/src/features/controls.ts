@@ -396,6 +396,10 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
       return this[$controls].options.maximumFieldOfView!;
     }
 
+    getWorldPoint(...args) {
+      return this[$renderer].getWorldPoint(...args);
+    }
+
     setWireframe() {
       return this[$renderer].setWireframe();
     }

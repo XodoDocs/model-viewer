@@ -155,17 +155,13 @@ export class Renderer extends EventDispatcher {
     target.add(obj1);
     obj1.updateMatrixWorld();
     // const newPoint1 = firstPoint.clone();
-    console.log('firstPoint', firstPoint);
     obj1.worldToLocal(firstPoint);
-    console.log('firstPoint', firstPoint);
     obj1.position.copy(firstPoint);
 
     target.add(obj2);
     obj2.updateMatrixWorld();
     // const newPoint2 = secondPoint.clone();
-    console.log('secondPoint', secondPoint);
     obj2.worldToLocal(secondPoint);
-    console.log('secondPoint', secondPoint);
     obj2.position.copy(secondPoint);
 
     scene.isDirty = true;
@@ -208,6 +204,25 @@ export class Renderer extends EventDispatcher {
     }
   }
 
+  public getWorldPoint(screenPoint, zPlane, canvas) {
+    const scene = this.scenes.values().next().value;
+    const camera = scene.getCamera();
+
+
+    // const pos = this.getCanvasRelativePosition({
+    //   clientX: screenPoint.x,
+    //   clientY: screenPoint.y,
+    // }, canvas);
+
+    const mouse = {
+      x: (screenPoint.x / canvas.width) * 2 - 1,
+      y: -(screenPoint.y / canvas.height) * 2 + 1,
+    };
+
+    const vector = new Vector3(mouse.x, mouse.y, zPlane).unproject(camera);
+    return vector;
+  }
+
   public getScreenPoint(point, screenWidth, screenHeight) {
     const scene = this.scenes.values().next().value;
     const camera = scene.getCamera();
@@ -219,6 +234,7 @@ export class Renderer extends EventDispatcher {
     return {
       x: (clonedVector.x + 1) * screenWidth / 2,
       y: -(clonedVector.y - 1) * screenHeight / 2,
+      zPlane: clonedVector.z,
     };
   }
 
@@ -295,8 +311,6 @@ export class Renderer extends EventDispatcher {
       const dx = closestScreenPoint.x - intScreenPoint.x;
       const dy = closestScreenPoint.y - intScreenPoint.y;
       const distanceBetweenScreenPoints = Math.sqrt((dx * dx) + (dy * dy));
-      console.log(dx, dy);
-      console.log('distanceBetweenScreenPoints', distanceBetweenScreenPoints);
       if (distanceBetweenScreenPoints > 11) {
         return intersection.point;
       }
@@ -378,6 +392,7 @@ export class Renderer extends EventDispatcher {
 
   public setInvisibleEdges() {
     const scene = this.scenes.values().next().value;
+    const funcs = [];
     scene.traverse(child => {
       if (child.isMesh) {
         // console.log(child.name);
@@ -398,11 +413,13 @@ export class Renderer extends EventDispatcher {
             edgeGeometry, new LineBasicMaterial({color: 0xff0000}));
         line.name = 'wv_entity';
         line.visible = false;
+        // This puts edges on another layer. So that when testing ray
+        // intersections we won't accidently intersects with edges.
         line.layers.set(1);
 
         this.edgeLines.push(line);
-        console.log('line', line);
         child.add(line);
+        funcs.push(() => child.remove(line));
         // this.bvhs.push({ bvh: new MeshBVH(line.geometry), mesh: line });
         // } else {
         //   child.visible = false;
@@ -425,6 +442,10 @@ export class Renderer extends EventDispatcher {
         // }
       }
     });
+
+    return () => {
+      funcs.forEach(func => func());
+    }
   }
 
   public setVertexNormals() {
