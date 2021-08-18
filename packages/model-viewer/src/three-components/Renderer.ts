@@ -395,17 +395,6 @@ export class Renderer extends EventDispatcher {
     const funcs = [];
     scene.traverse(child => {
       if (child.isMesh) {
-        // console.log(child.name);
-        // if (child.name === 'm_Barrel' || child.name ===
-        // 'm_Barrel_Material_#30_0') { if (child.name === 'm_WoodenBeams' ||
-        // child.name === 'm_WoodenBeams_Material_#25_0') {
-
-
-        // if (child.name === 'pCube43' || child.name ===
-        // 'pCube43_Air_condi_0') {
-
-        // 1`}
-
         // only show edges with 15 degrees or more angle between faces
         const thresholdAngle = 15;
         const edgeGeometry = new EdgesGeometry(child.geometry, thresholdAngle);
@@ -420,26 +409,6 @@ export class Renderer extends EventDispatcher {
         this.edgeLines.push(line);
         child.add(line);
         funcs.push(() => child.remove(line));
-        // this.bvhs.push({ bvh: new MeshBVH(line.geometry), mesh: line });
-        // } else {
-        //   child.visible = false;
-        // }
-        // if (child.name !== 'm_Barrel' && child.name !==
-        // 'm_Barrel_Material_#30_0' && child.isMesh) {
-        //   child.visible = false;
-        // }
-        // // if ((child.name === 'm_Barrel' || child.name ===
-        // 'm_Barrel_Material_#30_0')) {
-        //     // only show edges with 15 degrees or more angle between faces
-        //     const thresholdAngle = 15;
-        //     const edgeGeometry = new EdgesGeometry(child.geometry,
-        //     thresholdAngle); const line = new LineSegments(
-        //         edgeGeometry, new LineBasicMaterial({color: 0xffffff}));
-        //     line.name = 'edge_entity';
-        //     line.visible = false;
-        //     this.edgeLines.push(line);
-        //     child.add(line);
-        // }
       }
     });
 
@@ -454,11 +423,6 @@ export class Renderer extends EventDispatcher {
     scene.traverse(child => {
       if (child.isMesh && child.name !== 'measurement_entity') {
         const vn = new VertexNormalsHelper(child, 0.05, 0xff0000);
-        // vn.name = 'vertexNormalHelper';
-        // const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
-        // const wireframe = new LineSegments(wireframeGeometry,
-        // wireframeMaterial); wireframe.name = 'wireframe'; child.add(vn);
-        // funcs.push(() => child.remove(vn));
         scene.add(vn);
         funcs.push(() => scene.remove(vn));
       }
