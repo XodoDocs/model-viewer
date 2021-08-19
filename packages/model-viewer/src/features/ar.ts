@@ -15,11 +15,12 @@
 
 import {property} from 'lit-element';
 import {Event as ThreeEvent} from 'three';
+import {USDZExporter} from 'three/examples/jsm/exporters/USDZExporter';
 
 import {IS_AR_QUICKLOOK_CANDIDATE, IS_SCENEVIEWER_CANDIDATE, IS_WEBXR_AR_CANDIDATE} from '../constants.js';
-import ModelViewerElementBase, {$loaded, $needsRender, $renderer, $scene, $shouldAttemptPreload, $updateSource} from '../model-viewer-base.js';
+import ModelViewerElementBase, {$needsRender, $progressTracker, $renderer, $scene, $shouldAttemptPreload, $updateSource} from '../model-viewer-base.js';
 import {enumerationDeserializer} from '../styles/deserializers.js';
-import {ARStatus} from '../three-components/ARRenderer.js';
+import {ARStatus, ARTracking} from '../three-components/ARRenderer.js';
 import {Constructor, waitForEvent} from '../utilities.js';
 
 let isWebXRBlocked = false;
@@ -31,7 +32,7 @@ export type ARMode = 'quick-look'|'scene-viewer'|'webxr'|'none';
 const deserializeARModes = enumerationDeserializer<ARMode>(
     ['quick-look', 'scene-viewer', 'webxr', 'none']);
 
-const DEFAULT_AR_MODES = 'webxr scene-viewer quick-look';
+const DEFAULT_AR_MODES = 'webxr scene-viewer';
 
 const ARMode: {[index: string]: ARMode} = {
   QUICK_LOOK: 'quick-look',
@@ -42,6 +43,10 @@ const ARMode: {[index: string]: ARMode} = {
 
 export interface ARStatusDetails {
   status: ARStatus;
+}
+
+export interface ARTrackingDetails {
+  status: ARTracking;
 }
 
 const $arButtonContainer = Symbol('arButtonContainer');
@@ -56,14 +61,17 @@ const $preload = Symbol('preload');
 
 const $onARButtonContainerClick = Symbol('onARButtonContainerClick');
 const $onARStatus = Symbol('onARStatus');
+const $onARTracking = Symbol('onARTracking');
 const $onARTap = Symbol('onARTap');
 const $selectARMode = Symbol('selectARMode');
+const $triggerLoad = Symbol('triggerLoad');
 
 export declare interface ARInterface {
   ar: boolean;
   arModes: string;
   arScale: string;
   iosSrc: string|null;
+  xrEnvironment: boolean;
   readonly canActivateAR: boolean;
   activateAR(): Promise<void>;
 }
@@ -82,6 +90,9 @@ export const ARMixin = <T extends Constructor<ModelViewerElementBase>>(
     arModes: string = DEFAULT_AR_MODES;
 
     @property({type: String, attribute: 'ios-src'}) iosSrc: string|null = null;
+
+    @property({type: Boolean, attribute: 'xr-environment'})
+    xrEnvironment: boolean = false;
 
     get canActivateAR(): boolean {
       return this[$arMode] !== ARMode.NONE;
@@ -111,7 +122,18 @@ export const ARMixin = <T extends Constructor<ModelViewerElementBase>>(
         this.setAttribute('ar-status', status);
         this.dispatchEvent(
             new CustomEvent<ARStatusDetails>('ar-status', {detail: {status}}));
+        if (status === ARStatus.NOT_PRESENTING) {
+          this.removeAttribute('ar-tracking');
+        } else if (status === ARStatus.SESSION_STARTED) {
+          this.setAttribute('ar-tracking', ARTracking.TRACKING);
+        }
       }
+    };
+
+    private[$onARTracking] = ({status}: ThreeEvent) => {
+      this.setAttribute('ar-tracking', status);
+      this.dispatchEvent(new CustomEvent<ARTrackingDetails>(
+          'ar-tracking', {detail: {status}}));
     };
 
     private[$onARTap] = (event: Event) => {
@@ -126,6 +148,9 @@ export const ARMixin = <T extends Constructor<ModelViewerElementBase>>(
       this[$renderer].arRenderer.addEventListener('status', this[$onARStatus]);
       this.setAttribute('ar-status', ARStatus.NOT_PRESENTING);
 
+      this[$renderer].arRenderer.addEventListener(
+          'tracking', this[$onARTracking]);
+
       this[$arAnchor].addEventListener('message', this[$onARTap]);
     }
 
@@ -134,6 +159,8 @@ export const ARMixin = <T extends Constructor<ModelViewerElementBase>>(
 
       this[$renderer].arRenderer.removeEventListener(
           'status', this[$onARStatus]);
+      this[$renderer].arRenderer.removeEventListener(
+          'tracking', this[$onARTracking]);
 
       this[$arAnchor].removeEventListener('message', this[$onARTap]);
     }
@@ -190,27 +217,30 @@ configuration or device capabilities');
     async[$selectARMode]() {
       this[$arMode] = ARMode.NONE;
       if (this.ar) {
-        const arModes: ARMode[] = [];
-        this[$arModes].forEach((value) => {
-          arModes.push(value);
-        });
-
-        for (const value of arModes) {
-          if (value === 'webxr' && IS_WEBXR_AR_CANDIDATE && !isWebXRBlocked &&
-              await this[$renderer].arRenderer.supportsPresentation()) {
-            this[$arMode] = ARMode.WEBXR;
-            break;
-          } else if (
-              value === 'scene-viewer' && IS_SCENEVIEWER_CANDIDATE &&
-              !isSceneViewerBlocked) {
-            this[$arMode] = ARMode.SCENE_VIEWER;
-            break;
-          } else if (
-              value === 'quick-look' && !!this.iosSrc &&
-              IS_AR_QUICKLOOK_CANDIDATE) {
-            this[$arMode] = ARMode.QUICK_LOOK;
-            break;
+        if (this.src != null) {
+          for (const value of this[$arModes]) {
+            if (value === 'webxr' && IS_WEBXR_AR_CANDIDATE && !isWebXRBlocked &&
+                await this[$renderer].arRenderer.supportsPresentation()) {
+              this[$arMode] = ARMode.WEBXR;
+              break;
+            }
+            if (value === 'scene-viewer' && IS_SCENEVIEWER_CANDIDATE &&
+                !isSceneViewerBlocked) {
+              this[$arMode] = ARMode.SCENE_VIEWER;
+              break;
+            }
+            if (value === 'quick-look' && IS_AR_QUICKLOOK_CANDIDATE) {
+              this[$arMode] = ARMode.QUICK_LOOK;
+              break;
+            }
           }
+        }
+
+        // The presence of ios-src overrides the absence of quick-look
+        // ar-mode.
+        if (!this.canActivateAR && this.iosSrc != null &&
+            IS_AR_QUICKLOOK_CANDIDATE) {
+          this[$arMode] = ARMode.QUICK_LOOK;
         }
       }
 
@@ -232,30 +262,35 @@ configuration or device capabilities');
     }
 
     protected async[$enterARWithWebXR]() {
-      console.log('Attempting to present in AR...');
+      console.log('Attempting to present in AR with WebXR...');
 
-      if (!this[$loaded]) {
-        this[$preload] = true;
-        this[$updateSource]();
-        await waitForEvent(this, 'load');
-        this[$preload] = false;
-      }
+      await this[$triggerLoad]();
 
       try {
         this[$arButtonContainer].removeEventListener(
             'click', this[$onARButtonContainerClick]);
         const {arRenderer} = this[$renderer];
         arRenderer.placeOnWall = this.arPlacement === 'wall';
-        await arRenderer.present(this[$scene]);
+        await arRenderer.present(this[$scene], this.xrEnvironment);
       } catch (error) {
-        console.warn('Error while trying to present to AR');
+        console.warn('Error while trying to present in AR with WebXR');
         console.error(error);
         await this[$renderer].arRenderer.stopPresenting();
         isWebXRBlocked = true;
+        console.warn('Falling back to next ar-mode');
         await this[$selectARMode]();
         this.activateAR();
       } finally {
         this[$selectARMode]();
+      }
+    }
+
+    async[$triggerLoad]() {
+      if (!this.loaded) {
+        this[$preload] = true;
+        this[$updateSource]();
+        await waitForEvent(this, 'load');
+        this[$preload] = false;
       }
     }
 
@@ -276,7 +311,7 @@ configuration or device capabilities');
       locationUrl.hash = noArViewerSigil;
 
       // modelUrl can contain title/link/sound etc.
-      params.set('mode', 'ar_only');
+      params.set('mode', 'ar_preferred');
       if (!params.has('disable_occlusion')) {
         params.set('disable_occlusion', 'true');
       }
@@ -296,8 +331,10 @@ configuration or device capabilities');
       }
 
       const intent = `intent://arvr.google.com/scene-viewer/1.0?${
-          params
-              .toString()+'&file='+encodeURIComponent(modelUrl.toString())}#Intent;scheme=https;package=com.google.ar.core;action=android.intent.action.VIEW;S.browser_fallback_url=${
+          params.toString() + '&file=' +
+          encodeURIComponent(
+              modelUrl
+                  .toString())}#Intent;scheme=https;package=com.google.ar.core;action=android.intent.action.VIEW;S.browser_fallback_url=${
           encodeURIComponent(locationUrl.toString())};end;`;
 
       const undoHashChange = () => {
@@ -309,6 +346,8 @@ configuration or device capabilities');
           // because hash-only changes modify the URL in-place without
           // navigating:
           self.history.back();
+          console.warn('Error while trying to present in AR with Scene Viewer');
+          console.warn('Falling back to next ar-mode');
           this[$selectARMode]();
           // Would be nice to activateAR() here, but webXR fails due to not
           // seeing a user activation.
@@ -318,28 +357,79 @@ configuration or device capabilities');
       self.addEventListener('hashchange', undoHashChange, {once: true});
 
       this[$arAnchor].setAttribute('href', intent);
+      console.log('Attempting to present in AR with Scene Viewer...');
       this[$arAnchor].click();
     }
 
     /**
-     * Takes a URL to a USDZ file and sets the appropriate fields so that Safari
-     * iOS can intent to their AR Quick Look.
+     * Takes a URL to a USDZ file and sets the appropriate fields so that
+     * Safari iOS can intent to their AR Quick Look.
      */
-    [$openIOSARQuickLook]() {
-      const modelUrl = new URL(this.iosSrc!, self.location.toString());
+    async[$openIOSARQuickLook]() {
+      const generateUsdz = !this.iosSrc;
+
+      this[$arButtonContainer].classList.remove('enabled');
+
+      const objectURL = generateUsdz ? await this.prepareUSDZ() : this.iosSrc!;
+      const modelUrl = new URL(objectURL, self.location.toString());
+
       if (this.arScale === 'fixed') {
         if (modelUrl.hash) {
           modelUrl.hash += '&';
         }
         modelUrl.hash += 'allowsContentScaling=0';
       }
+
       const anchor = this[$arAnchor];
       anchor.setAttribute('rel', 'ar');
       const img = document.createElement('img');
       anchor.appendChild(img);
       anchor.setAttribute('href', modelUrl.toString());
+      if (generateUsdz) {
+        anchor.setAttribute('download', 'model.usdz');
+      }
+      console.log('Attempting to present in AR with Quick Look...');
       anchor.click();
       anchor.removeChild(img);
+      if (generateUsdz) {
+        URL.revokeObjectURL(objectURL);
+      }
+      this[$arButtonContainer].classList.add('enabled');
+    }
+
+    async prepareUSDZ(): Promise<string> {
+      const updateSourceProgress = this[$progressTracker].beginActivity();
+
+      await this[$triggerLoad]();
+
+      const scene = this[$scene];
+
+      const shadow = scene.shadow;
+      let visible = false;
+
+      // Remove shadow from export
+      if (shadow != null) {
+        visible = shadow.visible;
+        shadow.visible = false;
+      }
+
+      updateSourceProgress(0.2);
+
+      const exporter = new USDZExporter();
+      const arraybuffer = await exporter.parse(scene.modelContainer);
+      const blob = new Blob([arraybuffer], {
+        type: 'model/vnd.usdz+zip',
+      });
+
+      const url = URL.createObjectURL(blob);
+
+      updateSourceProgress(1);
+
+      if (shadow != null) {
+        shadow.visible = visible;
+      }
+
+      return url;
     }
   }
 

@@ -21,6 +21,8 @@ import {CorrelatedSceneGraph} from '../../../three-components/gltf-instance/corr
 import {Material, PBRMetallicRoughness, Texture, TextureInfo} from '../../../three-components/gltf-instance/gltf-2.0.js';
 import {assetPath, loadThreeGLTF} from '../../helpers.js';
 
+
+
 const expect = chai.expect;
 
 const HORSE_GLB_PATH = assetPath('models/Horse.glb');
@@ -93,7 +95,7 @@ suite('correlated-scene-graph', () => {
     });
 
     suite('when correlating a cloned glTF', () => {
-      test('ignores the GLTFLoader "default" material', async () => {
+      test('creates a GLTFLoader "default" material', async () => {
         const threeGLTF = await loadThreeGLTF(KHRONOS_TRIANGLE_GLB_PATH);
         const correlatedSceneGraph = CorrelatedSceneGraph.from(threeGLTF);
 
@@ -105,11 +107,33 @@ suite('correlated-scene-graph', () => {
         const cloneCorrelatedSceneGraph =
             CorrelatedSceneGraph.from(cloneThreeGLTF, correlatedSceneGraph);
 
+        let name;
         cloneCorrelatedSceneGraph.threeObjectMap.forEach(
-            (_reference, threeObject) => {
-              expect((threeObject as MeshStandardMaterial).isMaterial)
-                  .to.be.undefined;
+            (reference, threeObject) => {
+              if ((threeObject as MeshStandardMaterial).isMaterial) {
+                name =
+                    cloneCorrelatedSceneGraph.gltf.materials![reference.index]
+                        .name;
+              }
             });
+        expect(name).to.be.eq('Default');
+      });
+
+      test('Only one default material after cloning', async () => {
+        const threeGLTF = await loadThreeGLTF(KHRONOS_TRIANGLE_GLB_PATH);
+        const correlatedSceneGraph = CorrelatedSceneGraph.from(threeGLTF);
+
+        const scene = SkeletonUtils.clone(threeGLTF.scene) as Group;
+        const scenes: Group[] = [scene];
+
+        const cloneThreeGLTF: GLTF = {...threeGLTF, scene, scenes};
+
+        const cloneCorrelatedSceneGraph =
+            CorrelatedSceneGraph.from(cloneThreeGLTF, correlatedSceneGraph);
+
+        expect(cloneCorrelatedSceneGraph.gltf.materials!.length).to.be.eq(1);
+        expect(cloneCorrelatedSceneGraph.gltf.materials![0].name)
+            .to.be.eq('Default');
       });
     });
   });

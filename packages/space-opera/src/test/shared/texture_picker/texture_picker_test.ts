@@ -18,13 +18,12 @@
 
 import '../../../components/shared/texture_picker/texture_picker.js';
 
-import {generatePngBlob} from '@google/model-viewer-editing-adapter/lib/main.js'
-import {createSafeObjectURL} from '@google/model-viewer-editing-adapter/lib/util/create_object_url.js'
 import {IconButton} from '@material/mwc-icon-button';
 
 import {FileModalElement} from '../../../components/file_modal/file_modal.js';
-
-import {TexturePicker} from '../../../components/shared/texture_picker/texture_picker.js';
+import {FileDetails, TexturePicker} from '../../../components/shared/texture_picker/texture_picker.js';
+import {createSafeObjectURL} from '../../../components/utils/create_object_url.js';
+import {generatePngBlob} from '../../utils/test_utils.js';
 
 describe('texture picker test', () => {
   let texturePicker: TexturePicker;
@@ -66,7 +65,7 @@ describe('texture picker test', () => {
         texturePicker.shadowRoot!.querySelector(
             'me-file-modal#textureUpload')! as FileModalElement;
 
-    const openPromise = new Promise<File[] | undefined>(resolve => {
+    const openPromise = new Promise<File[]|undefined>(resolve => {
       resolve([new File(['test'], 'testname', {type: 'image/jpeg'})]);
     });
 
@@ -82,7 +81,9 @@ describe('texture picker test', () => {
     expect(eventListenerSpy).toHaveBeenCalledTimes(1);
     const eventListenerArguments = eventListenerSpy.calls.first().args;
     expect(eventListenerArguments.length).toBe(1);
-    expect(eventListenerArguments[0].detail).toBeInstanceOf(String);
+    const {url, type} = eventListenerArguments[0].detail as FileDetails;
+    expect(url).toBeInstanceOf(String);
+    expect(type).toEqual('image/jpeg');
   });
 
   it('dispatches an event with undefined selectedIndex on null texture click',

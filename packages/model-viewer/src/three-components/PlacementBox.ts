@@ -132,6 +132,14 @@ export class PlacementBox extends Mesh {
     return hitResult == null ? null : hitResult.position;
   }
 
+  getExpandedHit(scene: ModelScene, screenX: number, screenY: number): Vector3
+      |null {
+    this.hitPlane.scale.set(1000, 1000, 1000);
+    const hitResult = this.getHit(scene, screenX, screenY);
+    this.hitPlane.scale.set(1, 1, 1);
+    return hitResult;
+  }
+
   /**
    * Offset the height of the box relative to the bottom of the scene. Positive
    * is up, so generally only negative values are used.
@@ -178,5 +186,6 @@ export class PlacementBox extends Mesh {
     (material as Material).dispose();
     this.geometry.dispose();
     (this.material as Material).dispose();
+    this.parent?.remove(this);
   }
 }

@@ -15,7 +15,7 @@
 
 import {Texture as ThreeTexture} from 'three';
 
-import {GLTF, Texture as GLTFTexture} from '../../three-components/gltf-instance/gltf-2.0.js';
+import {Image as GLTFImage, Sampler as GLTFSampler, Texture as GLTFTexture} from '../../three-components/gltf-instance/gltf-2.0.js';
 
 import {Texture as TextureInterface} from './api.js';
 import {Image} from './image.js';
@@ -23,35 +23,31 @@ import {Sampler} from './sampler.js';
 import {$sourceObject, ThreeDOMElement} from './three-dom-element.js';
 
 
-const $source = Symbol('source');
+
+const $image = Symbol('image');
 const $sampler = Symbol('sampler');
 
 /**
  * Material facade implementation for Three.js materials
  */
 export class Texture extends ThreeDOMElement implements TextureInterface {
-  private[$source]: Image;
+  private[$image]: Image;
   private[$sampler]: Sampler;
 
   constructor(
-      onUpdate: () => void, gltf: GLTF, texture: GLTFTexture,
-      correlatedTextures: Set<ThreeTexture>) {
-    super(onUpdate, texture, correlatedTextures);
+      onUpdate: () => void,
+      threeTexture: ThreeTexture|null,
+      gltfTexture: GLTFTexture|null = null,
+      gltfSampler: GLTFSampler|null = null,
+      gltfImage: GLTFImage|null = null,
+  ) {
+    super(
+        onUpdate,
+        gltfTexture ? gltfTexture : {} as GLTFTexture,
+        new Set<ThreeTexture>(threeTexture ? [threeTexture] : []));
 
-    const {sampler: samplerIndex, source: imageIndex} = texture;
-
-    const sampler = (gltf.samplers != null && samplerIndex != null) ?
-        gltf.samplers[samplerIndex] :
-        {};
-    this[$sampler] = new Sampler(onUpdate, sampler, correlatedTextures);
-
-    if (gltf.images != null && imageIndex != null) {
-      const image = gltf.images[imageIndex];
-
-      if (image != null) {
-        this[$source] = new Image(onUpdate, image, correlatedTextures);
-      }
-    }
+    this[$sampler] = new Sampler(onUpdate, threeTexture, gltfSampler);
+    this[$image] = new Image(onUpdate, threeTexture, gltfImage);
   }
 
   get name(): string {
@@ -63,6 +59,6 @@ export class Texture extends ThreeDOMElement implements TextureInterface {
   }
 
   get source(): Image {
-    return this[$source];
+    return this[$image];
   }
 }

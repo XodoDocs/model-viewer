@@ -13,20 +13,25 @@
  * limitations under the License.
  */
 
-import {MeshStandardMaterial, Texture as ThreeTexture} from 'three';
+import {DoubleSide, FrontSide, MeshStandardMaterial} from 'three';
 
-import {GLTF, Material as GLTFMaterial} from '../../three-components/gltf-instance/gltf-2.0.js';
+import {AlphaMode, GLTF, Material as GLTFMaterial} from '../../three-components/gltf-instance/gltf-2.0.js';
+import {Material as DefaultedMaterial} from '../../three-components/gltf-instance/gltf-defaulted.js';
+import {ALPHA_CUTOFF_BLEND, ALPHA_CUTOFF_OPAQUE} from '../../three-components/gltf-instance/ModelViewerGLTFInstance.js';
 
 import {Material as MaterialInterface, RGB} from './api.js';
 import {PBRMetallicRoughness} from './pbr-metallic-roughness.js';
-import {TextureInfo} from './texture-info.js';
+import {TextureInfo, TextureUsage} from './texture-info.js';
 import {$correlatedObjects, $onUpdate, $sourceObject, ThreeDOMElement} from './three-dom-element.js';
+
 
 
 const $pbrMetallicRoughness = Symbol('pbrMetallicRoughness');
 const $normalTexture = Symbol('normalTexture');
 const $occlusionTexture = Symbol('occlusionTexture');
 const $emissiveTexture = Symbol('emissiveTexture');
+const $backingThreeMaterial = Symbol('backingThreeMaterial');
+const $applyAlphaCutoff = Symbol('applyAlphaCutoff');
 
 /**
  * Material facade implementation for Three.js materials
@@ -34,61 +39,87 @@ const $emissiveTexture = Symbol('emissiveTexture');
 export class Material extends ThreeDOMElement implements MaterialInterface {
   private[$pbrMetallicRoughness]: PBRMetallicRoughness;
 
-  private[$normalTexture]: TextureInfo|null = null;
-  private[$occlusionTexture]: TextureInfo|null = null;
-  private[$emissiveTexture]: TextureInfo|null = null;
-
+  private[$normalTexture]: TextureInfo;
+  private[$occlusionTexture]: TextureInfo;
+  private[$emissiveTexture]: TextureInfo;
+  get[$backingThreeMaterial](): MeshStandardMaterial {
+    return (this[$correlatedObjects] as Set<MeshStandardMaterial>)
+        .values()
+        .next()
+        .value;
+  }
   constructor(
-      onUpdate: () => void, gltf: GLTF, material: GLTFMaterial,
-      correlatedMaterials: Set<MeshStandardMaterial>|undefined) {
-    super(onUpdate, material, correlatedMaterials);
+      onUpdate: () => void, gltf: GLTF, gltfMaterial: GLTFMaterial,
+      correlatedMaterials: Set<MeshStandardMaterial>) {
+    super(onUpdate, gltfMaterial, correlatedMaterials);
 
-    if (correlatedMaterials == null) {
-      return;
+    if (gltfMaterial.extensions &&
+        gltfMaterial.extensions['KHR_materials_pbrSpecularGlossiness']) {
+      console.warn(`Material ${gltfMaterial.name} uses a deprecated extension
+          "KHR_materials_pbrSpecularGlossiness", please use
+          "pbrMetallicRoughness" instead. Specular Glossiness materials are
+          currently supported for rendering, but not for our scene-graph API,
+          nor for auto-generation of USDZ for Quick Look.`);
     }
 
-    if (material.pbrMetallicRoughness == null) {
-      material.pbrMetallicRoughness = {};
+
+    if (gltfMaterial.pbrMetallicRoughness == null) {
+      gltfMaterial.pbrMetallicRoughness = {};
     }
     this[$pbrMetallicRoughness] = new PBRMetallicRoughness(
-        onUpdate, gltf, material.pbrMetallicRoughness, correlatedMaterials);
+        onUpdate, gltf, gltfMaterial.pbrMetallicRoughness, correlatedMaterials);
 
-    const {normalTexture, occlusionTexture, emissiveTexture} = material;
-
-    const normalTextures = new Set<ThreeTexture>();
-    const occlusionTextures = new Set<ThreeTexture>();
-    const emissiveTextures = new Set<ThreeTexture>();
-
-    for (const material of correlatedMaterials) {
-      const {normalMap, aoMap, emissiveMap} = material;
-
-      if (normalTexture != null && normalMap != null) {
-        normalTextures.add(normalMap);
-      }
-
-      if (occlusionTexture != null && aoMap != null) {
-        occlusionTextures.add(aoMap);
-      }
-
-      if (emissiveTexture != null && emissiveMap != null) {
-        emissiveTextures.add(emissiveMap);
-      }
+    if (gltfMaterial.emissiveFactor == null) {
+      gltfMaterial.emissiveFactor = [0, 0, 0];
     }
 
-    if (normalTextures.size > 0) {
-      this[$normalTexture] =
-          new TextureInfo(onUpdate, gltf, normalTexture!, normalTextures);
+    if (gltfMaterial.doubleSided == null) {
+      gltfMaterial.doubleSided = false;
     }
 
-    if (occlusionTextures.size > 0) {
-      this[$occlusionTexture] =
-          new TextureInfo(onUpdate, gltf, occlusionTexture!, occlusionTextures);
+    if (gltfMaterial.alphaMode == null) {
+      gltfMaterial.alphaMode = 'OPAQUE';
     }
 
-    if (emissiveTextures.size > 0) {
-      this[$emissiveTexture] =
-          new TextureInfo(onUpdate, gltf, emissiveTexture!, emissiveTextures);
+    if (gltfMaterial.alphaCutoff == null) {
+      gltfMaterial.alphaCutoff = 0.5;
     }
+
+    const {
+      normalTexture: gltfNormalTexture,
+      occlusionTexture: gltfOcculsionTexture,
+      emissiveTexture: gltfEmissiveTexture
+    } = gltfMaterial;
+
+    const {normalMap, aoMap, emissiveMap} =
+        correlatedMaterials.values().next().value;
+
+    this[$normalTexture] = new TextureInfo(
+        onUpdate,
+        TextureUsage.Normal,
+        normalMap,
+        correlatedMaterials,
+        gltf,
+        gltfNormalTexture ? gltfNormalTexture : null,
+    );
+
+    this[$occlusionTexture] = new TextureInfo(
+        onUpdate,
+        TextureUsage.Occlusion,
+        aoMap,
+        correlatedMaterials,
+        gltf,
+        gltfOcculsionTexture ? gltfOcculsionTexture : null,
+    );
+
+    this[$emissiveTexture] = new TextureInfo(
+        onUpdate,
+        TextureUsage.Emissive,
+        emissiveMap,
+        correlatedMaterials,
+        gltf,
+        gltfEmissiveTexture ? gltfEmissiveTexture : null,
+    );
   }
 
   get name(): string {
@@ -99,20 +130,20 @@ export class Material extends ThreeDOMElement implements MaterialInterface {
     return this[$pbrMetallicRoughness];
   }
 
-  get normalTexture(): TextureInfo|null {
+  get normalTexture(): TextureInfo {
     return this[$normalTexture];
   }
 
-  get occlusionTexture(): TextureInfo|null {
+  get occlusionTexture(): TextureInfo {
     return this[$occlusionTexture];
   }
 
-  get emissiveTexture(): TextureInfo|null {
+  get emissiveTexture(): TextureInfo {
     return this[$emissiveTexture];
   }
 
   get emissiveFactor(): RGB {
-    return (this[$sourceObject] as GLTFMaterial).emissiveFactor!;
+    return (this[$sourceObject] as DefaultedMaterial).emissiveFactor;
   }
 
   setEmissiveFactor(rgb: RGB) {
@@ -120,7 +151,75 @@ export class Material extends ThreeDOMElement implements MaterialInterface {
          Set<MeshStandardMaterial>) {
       material.emissive.fromArray(rgb);
     }
-    (this[$sourceObject] as GLTFMaterial).emissiveFactor = rgb;
+    (this[$sourceObject] as DefaultedMaterial).emissiveFactor = rgb;
     this[$onUpdate]();
+  }
+
+  [$applyAlphaCutoff]() {
+    const gltfMaterial = this[$sourceObject] as DefaultedMaterial;
+    // 0.0001 is the minimum in order to keep from using zero, which disables
+    // masking in three.js. It's also small enough to be less than the smallest
+    // normalized 8-bit value.
+    const cutoff = gltfMaterial.alphaMode === 'OPAQUE' ?
+        ALPHA_CUTOFF_OPAQUE :
+        (gltfMaterial.alphaMode === 'BLEND' ?
+             ALPHA_CUTOFF_BLEND :
+             Math.max(0.0001, Math.min(1.0, gltfMaterial.alphaCutoff)));
+    for (const material of this[$correlatedObjects] as
+         Set<MeshStandardMaterial>) {
+      material.alphaTest = cutoff;
+      material.needsUpdate = true;
+    }
+  }
+
+  setAlphaCutoff(cutoff: number): void {
+    (this[$sourceObject] as DefaultedMaterial).alphaCutoff = cutoff;
+    this[$applyAlphaCutoff]();
+    this[$onUpdate]();
+  }
+
+  getAlphaCutoff(): number {
+    return (this[$sourceObject] as DefaultedMaterial).alphaCutoff;
+  }
+
+  setDoubleSided(doubleSided: boolean): void {
+    for (const material of this[$correlatedObjects] as
+         Set<MeshStandardMaterial>) {
+      // When double-sided is disabled gltf spec dictates that Back-Face culling
+      // must be disabled, in three.js parlance that would mean FrontSide
+      // rendering only.
+      // https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#double-sided
+      material.side = doubleSided ? DoubleSide : FrontSide;
+      material.needsUpdate = true;
+    }
+    (this[$sourceObject] as DefaultedMaterial).doubleSided = doubleSided;
+    this[$onUpdate]();
+  }
+
+  getDoubleSided(): boolean {
+    return (this[$sourceObject] as DefaultedMaterial).doubleSided;
+  }
+
+  setAlphaMode(alphaMode: AlphaMode): void {
+    const enableTransparency =
+        (material: MeshStandardMaterial, enabled: boolean): void => {
+          material.transparent = enabled;
+          material.depthWrite = !enabled;
+        };
+
+    (this[$sourceObject] as DefaultedMaterial).alphaMode = alphaMode;
+
+    for (const material of this[$correlatedObjects] as
+         Set<MeshStandardMaterial>) {
+      enableTransparency(material, alphaMode !== 'OPAQUE');
+      this[$applyAlphaCutoff]();
+      material.needsUpdate = true;
+    }
+
+    this[$onUpdate]();
+  }
+
+  getAlphaMode(): AlphaMode {
+    return (this[$sourceObject] as DefaultedMaterial).alphaMode;
   }
 }

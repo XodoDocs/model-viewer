@@ -15,9 +15,7 @@
  *
  */
 
-import {ModelViewerConfig} from '@google/model-viewer-editing-adapter/lib/main.js'
-
-import {Action, State} from '../../types.js';
+import {Action, ModelViewerConfig, State} from '../../types.js';
 
 const SET_CAMERA_CONTROLS_ENABLED = 'SET_CAMERA_CONTROLS_ENABLED';
 export function dispatchCameraControlsEnabled(enabled?: boolean) {
@@ -86,7 +84,7 @@ export function dispatchSetReveal(reveal?: string) {
   return {type: SET_REVEAL, payload: reveal};
 }
 
-const SET_CONFIG = 'SET_CONFIG'
+const SET_CONFIG = 'SET_CONFIG';
 export function dispatchSetConfig(config: ModelViewerConfig) {
   return {type: SET_CONFIG, payload: config};
 }

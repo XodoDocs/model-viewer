@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import {BackSide, DoubleSide, FrontSide, Material, Mesh, MeshStandardMaterial, Object3D, Shader} from 'three';
+import {FrontSide, Material, Mesh, MeshStandardMaterial, Object3D, Shader, Texture} from 'three';
 import {GLTF} from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import {$clone, $prepare, $preparedGLTF, GLTFInstance, PreparedGLTF} from '../GLTFInstance.js';
@@ -21,6 +21,13 @@ import {Renderer} from '../Renderer.js';
 import {alphaChunk} from '../shader-chunk/alphatest_fragment.glsl.js';
 
 import {CorrelatedSceneGraph} from './correlated-scene-graph.js';
+
+
+
+// Provides value assigned to alpha-cutoff when opaque rendering is desired.
+export const ALPHA_CUTOFF_OPAQUE = -0.5;
+// Provides value assigned to alpha-cutoff when alpha-blending is desired.
+export const ALPHA_CUTOFF_BLEND = 0;
 
 const $cloneAndPatchMaterial = Symbol('cloneAndPatchMaterial');
 const $correlatedSceneGraph = Symbol('correlatedSceneGraph');
@@ -47,8 +54,6 @@ export class ModelViewerGLTFInstance extends GLTFInstance {
 
     const {scene} = prepared;
 
-    const meshesToDuplicate: Mesh[] = [];
-
     scene.traverse((node: Object3D) => {
       // Set a high renderOrder while we're here to ensure the model
       // always renders on top of the skysphere
@@ -64,53 +69,10 @@ export class ModelViewerGLTFInstance extends GLTFInstance {
       if (!node.name) {
         node.name = node.uuid;
       }
-      if (!(node as Mesh).isMesh) {
-        return;
-      }
-      node.castShadow = true;
-      const mesh = node as Mesh;
-      let transparent = false;
-      const materials =
-          Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      materials.forEach(material => {
-        if ((material as any).isMeshStandardMaterial) {
-          if (material.transparent && material.side === DoubleSide) {
-            transparent = true;
-            material.side = FrontSide;
-          }
-          Renderer.singleton.roughnessMipmapper.generateMipmaps(
-              material as MeshStandardMaterial);
-        }
-      });
-
-      if (transparent) {
-        meshesToDuplicate.push(mesh);
+      if ((node as Mesh).isMesh) {
+        node.castShadow = true;
       }
     });
-
-    // We duplicate transparent, double-sided meshes and render the back face
-    // before the front face. This creates perfect triangle sorting for all
-    // convex meshes. Sorting artifacts can still appear when you can see
-    // through more than two layers of a given mesh, but this can usually be
-    // mitigated by the author splitting the mesh into mostly convex regions.
-    // The performance cost is not too great as the same shader is reused and
-    // the same number of fragments are processed; only the vertex shader is run
-    // twice. @see https://threejs.org/examples/webgl_materials_physical_transparency.html
-    for (const mesh of meshesToDuplicate) {
-      const materials =
-          Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      const duplicateMaterials = materials.map((material) => {
-        const backMaterial = material.clone();
-        backMaterial.side = BackSide;
-        return backMaterial;
-      });
-      const duplicateMaterial = Array.isArray(mesh.material) ?
-          duplicateMaterials :
-          duplicateMaterials[0];
-      const meshBack = new Mesh(mesh.geometry, duplicateMaterial);
-      meshBack.renderOrder = -1;
-      mesh.add(meshBack);
-    }
 
     return prepared;
   }
@@ -171,9 +133,6 @@ export class ModelViewerGLTFInstance extends GLTFInstance {
     }
 
     const clone = material.clone() as MeshStandardMaterial;
-
-    // Clone the textures manually since material cloning is shallow. The
-    // underlying images are still shared.
     if (material.map != null) {
       clone.map = material.map.clone();
       clone.map.needsUpdate = true;
@@ -187,32 +146,43 @@ export class ModelViewerGLTFInstance extends GLTFInstance {
       clone.emissiveMap.needsUpdate = true;
     }
 
-    if ((material as any).isGLTFSpecularGlossinessMaterial) {
-      if ((material as any).specularMap != null) {
-        (clone as any).specularMap = (material as any).specularMap?.clone();
-        (clone as any).specularMap.needsUpdate = true;
-      }
-      if ((material as any).glossinessMap != null) {
-        (clone as any).glossinessMap = (material as any).glossinessMap?.clone();
-        (clone as any).glossinessMap.needsUpdate = true;
-      }
-    } else {
-      // ao, roughness and metalness sometimes share a texture.
-      if (material.metalnessMap === material.aoMap) {
-        clone.metalnessMap = clone.aoMap;
-      } else if (material.metalnessMap != null) {
-        clone.metalnessMap = material.metalnessMap.clone();
-        clone.metalnessMap.needsUpdate = true;
-      }
+    // Clones the roughnessMap if it exists.
+    let roughnessMap: Texture|null = null;
+    if (material.roughnessMap != null) {
+      roughnessMap = material.roughnessMap.clone();
+    }
 
-      if (material.roughnessMap === material.aoMap) {
-        clone.roughnessMap = clone.aoMap;
-      } else if (material.roughnessMap === material.metalnessMap) {
-        clone.roughnessMap = clone.metalnessMap;
-      } else if (material.roughnessMap != null) {
-        clone.roughnessMap = material.roughnessMap.clone();
-        clone.roughnessMap.needsUpdate = true;
-      }
+    // Assigns the roughnessMap to the cloned material and generates mipmaps.
+    if (roughnessMap != null) {
+      roughnessMap.needsUpdate = true;
+      clone.roughnessMap = roughnessMap;
+
+      // Generates mipmaps from the clone of the roughnessMap.
+      const {threeRenderer, roughnessMipmapper} = Renderer.singleton;
+      // XR must be disabled while doing offscreen rendering or it will
+      // clobber the camera.
+      const {enabled} = threeRenderer.xr;
+      threeRenderer.xr.enabled = false;
+      roughnessMipmapper.generateMipmaps(clone as MeshStandardMaterial);
+      threeRenderer.xr.enabled = enabled;
+    }
+
+    // Checks if roughnessMap and metalnessMap share the same texture and
+    // either clones or assigns.
+    if (material.roughnessMap === material.metalnessMap) {
+      clone.metalnessMap = roughnessMap;
+    } else if (material.metalnessMap != null) {
+      clone.metalnessMap = material.metalnessMap.clone();
+      clone.metalnessMap.needsUpdate = true;
+    }
+
+    // Checks if roughnessMap and aoMap share the same texture and
+    // either clones or assigns.
+    if (material.roughnessMap === material.aoMap) {
+      clone.aoMap = roughnessMap;
+    } else if (material.aoMap != null) {
+      clone.aoMap = material.aoMap.clone();
+      clone.aoMap.needsUpdate = true;
     }
 
     // This allows us to patch three's materials, on top of patches already
@@ -242,7 +212,7 @@ export class ModelViewerGLTFInstance extends GLTFInstance {
     // This little hack ignores alpha for opaque materials, in order to comply
     // with the glTF spec.
     if (!clone.alphaTest && !clone.transparent) {
-      clone.alphaTest = -0.5;
+      clone.alphaTest = ALPHA_CUTOFF_OPAQUE;
     }
 
     sourceUUIDToClonedMaterial.set(material.uuid, clone);

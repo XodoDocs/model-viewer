@@ -134,7 +134,7 @@ export class ArtifactCreator {
       throw new Error(`❌ Model-viewer's screenshot of ${
           scenarioName} is not captured correctly (value is null).`);
     }
-    const screenshotImage = pngjs.PNG.sync.read(screenshot).data;
+    const screenshotImage = pngjs.PNG.sync.read(screenshot as Buffer).data;
 
     const modelViewerIndex = 0;
     const modelViewerGoldenPath = join(
@@ -158,7 +158,7 @@ export class ArtifactCreator {
     if (rmsInDb > FIDELITY_TEST_THRESHOLD) {
       if (exclude?.includes('model-viewer')) {
         console.log(`❌ Skipped! Senario name: ${
-            scenario.name}, rms distance ratio: ${rmsInDb.toFixed(2)} dB.`)
+            scenario.name}, rms distance ratio: ${rmsInDb.toFixed(2)} dB.`);
       } else {
         throw new Error(`❌ Senarios name: ${
             scenario.name}, rms distance ratio: ${rmsInDb.toFixed(2)} dB.`);
@@ -305,7 +305,7 @@ export class ArtifactCreator {
     // currently has no mechanism to detect this and will happily tell you
     // your code is correct when it isn't.
     const evaluateError = await page.evaluate(async (maxTimeInSec) => {
-      const modelBecomesReady = new Promise((resolve, reject) => {
+      const modelBecomesReady = new Promise<void>((resolve, reject) => {
         let timeout: NodeJS.Timeout;
         if (maxTimeInSec > 0) {
           timeout = setTimeout(() => {

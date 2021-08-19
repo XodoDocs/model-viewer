@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {MagFilter, MinFilter, WrapMode} from '../../three-components/gltf-instance/gltf-2.0.js';
+import {AlphaMode, MagFilter, MinFilter, WrapMode} from '../../three-components/gltf-instance/gltf-2.0.js';
 
 /**
  * All constructs in a 3DOM scene graph have a corresponding string name.
@@ -60,6 +60,12 @@ export declare interface Material {
 
   readonly emissiveFactor: Readonly<RGB>;
   setEmissiveFactor(rgb: RGB): void;
+  setAlphaCutoff(cutoff: number): void;
+  getAlphaCutoff(): number;
+  setDoubleSided(doubleSided: boolean): void;
+  getDoubleSided(): boolean;
+  setAlphaMode(alphaMode: AlphaMode): void;
+  getAlphaMode(): AlphaMode;
 
   /**
    * The PBRMetallicRoughness configuration of the material.
@@ -126,7 +132,13 @@ export declare interface TextureInfo {
   /**
    * The Texture being referenced by this TextureInfo
    */
-  readonly texture: Texture;
+  readonly texture: Texture|null;
+
+  /**
+   * Sets a texture on the texture info, or removes the texture if argument is
+   * null.
+   */
+  setTexture(texture: Texture|null): void;
 }
 
 /**
@@ -229,10 +241,22 @@ export declare interface Image {
   readonly uri?: string;
 
   /**
+   * The bufferView of the image, if it is embedded.
+   */
+  readonly bufferView?: number
+
+  /**
    * Configure the URI of the image. If a URI is specified for an otherwise
    * embedded image, the URI will take precedence over an embedded buffer.
    */
   setURI(uri: string): Promise<void>;
+
+  /**
+   * A method to create an object URL of this image at the desired
+   * resolution. Especially useful for KTX2 textures which are GPU compressed,
+   * and so are unreadable on the CPU without a method like this.
+   */
+  createThumbnail(width: number, height: number): Promise<string>;
 }
 
 /**

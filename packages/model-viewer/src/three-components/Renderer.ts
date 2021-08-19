@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, BackSide, BoxGeometry, BufferGeometry, Color, DoubleSide, EdgesGeometry, Event, EventDispatcher, GammaEncoding, Group, Line, Line3, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshNormalMaterial, MeshPhongMaterial, MeshStandardMaterial, Object3D, PCFSoftShadowMap, PlaneGeometry, Ray, Raycaster, SphereGeometry, Vector2, Vector3, WebGL1Renderer, WireframeGeometry} from 'three';
-import {acceleratedRaycast, MeshBVH} from 'three-mesh-bvh';
+import {ACESFilmicToneMapping, Event, EventDispatcher, GammaEncoding, PCFSoftShadowMap, WebGLRenderer} from 'three';
+import {EdgesGeometry, Line3, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Object3D, Raycaster, SphereGeometry, Vector3, WireframeGeometry} from 'three';
+// modified to work with child
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
-import {Line2} from 'three/examples/jsm/lines/Line2.js';
-import {LineGeometry} from 'three/examples/jsm/lines/LineGeometry.js';
-import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
 import {RoughnessMipmapper} from 'three/examples/jsm/utils/RoughnessMipmapper';
 
-import {USE_OFFSCREEN_CANVAS} from '../constants.js';
-import {$canvas, $sceneIsReady, $tick, $updateSize, $userInputElement} from '../model-viewer-base.js';
+import {$updateEnvironment} from '../features/environment.js';
+import {ModelViewerGlobalConfig} from '../features/loading.js';
+import ModelViewerElementBase, {$canvas, $tick, $updateSize} from '../model-viewer-base.js';
 import {clamp, isDebugMode, resolveDpr} from '../utilities.js';
 
 import {ARRenderer} from './ARRenderer.js';
@@ -34,10 +33,8 @@ import {ModelViewerGLTFInstance} from './gltf-instance/ModelViewerGLTFInstance.j
 import {ModelScene} from './ModelScene.js';
 import TextureUtils from './TextureUtils.js';
 
-// import {VertexNormalsHelper} from './VertexNormalsHelper.js'; // modified to
-// work with child
-
 export interface RendererOptions {
+  powerPreference: string;
   debug?: boolean;
 }
 
@@ -55,6 +52,7 @@ const SCALE_STEPS = [1, 0.79, 0.62, 0.5, 0.4, 0.31, 0.25];
 const DEFAULT_LAST_STEP = 3;
 
 const raycaster = new Raycaster();
+export const DEFAULT_POWER_PREFERENCE: string = 'high-performance';
 
 /**
  * Registers canvases with Canvas2DRenderingContexts and renders them
@@ -68,20 +66,39 @@ const raycaster = new Raycaster();
  * the texture.
  */
 export class Renderer extends EventDispatcher {
-  static _singleton = new Renderer({debug: isDebugMode()});
+  private static _singleton = new Renderer({
+    powerPreference:
+        (((self as any).ModelViewerElement || {}) as ModelViewerGlobalConfig)
+            .powerPreference ||
+        DEFAULT_POWER_PREFERENCE,
+    debug: isDebugMode()
+  });
 
   static get singleton() {
     return this._singleton;
   }
 
   static resetSingleton() {
-    this._singleton.dispose();
-    this._singleton = new Renderer({debug: isDebugMode()});
+    const elements = this._singleton.dispose();
+    for (const element of elements) {
+      element.disconnectedCallback();
+    }
+
+    this._singleton = new Renderer({
+      powerPreference:
+          (((self as any).ModelViewerElement || {}) as ModelViewerGlobalConfig)
+              .powerPreference ||
+          DEFAULT_POWER_PREFERENCE,
+      debug: isDebugMode()
+    });
+
+    for (const element of elements) {
+      element.connectedCallback();
+    }
   }
 
-  public threeRenderer!: WebGL1Renderer;
-  public canvasElement: HTMLCanvasElement;
-  public canvas3D: HTMLCanvasElement|OffscreenCanvas;
+  public threeRenderer!: WebGLRenderer;
+  public canvas3D: HTMLCanvasElement;
   public textureUtils: TextureUtils|null;
   public arRenderer: ARRenderer;
   public roughnessMipmapper: RoughnessMipmapper;
@@ -575,26 +592,20 @@ export class Renderer extends EventDispatcher {
     this.lastStep = i - 1;
   }
 
-  constructor(options?: RendererOptions) {
+  constructor(options: RendererOptions) {
     super();
 
     this.dpr = resolveDpr();
 
-    this.canvasElement = document.createElement('canvas');
-    this.canvasElement.id = 'webgl-canvas';
-
-    this.canvas3D = USE_OFFSCREEN_CANVAS ?
-        this.canvasElement.transferControlToOffscreen() :
-        this.canvasElement;
-
-    this.canvas3D.addEventListener('webglcontextlost', this.onWebGLContextLost);
+    this.canvas3D = document.createElement('canvas');
+    this.canvas3D.id = 'webgl-canvas';
 
     try {
-      this.threeRenderer = new WebGL1Renderer({
+      this.threeRenderer = new WebGLRenderer({
         canvas: this.canvas3D,
         alpha: true,
         antialias: true,
-        powerPreference: 'high-performance' as WebGLPowerPreference,
+        powerPreference: options.powerPreference as WebGLPowerPreference,
         preserveDrawingBuffer: true
       });
       this.threeRenderer.autoClear = true;
@@ -605,8 +616,7 @@ export class Renderer extends EventDispatcher {
       this.threeRenderer.shadowMap.type = PCFSoftShadowMap;
       this.threeRenderer.shadowMap.autoUpdate = false;
 
-      this.debugger =
-          options != null && !!options.debug ? new Debugger(this) : null;
+      this.debugger = !!options.debug ? new Debugger(this) : null;
       this.threeRenderer.debug = {checkShaderErrors: !!this.debugger};
 
       // ACESFilmicToneMapping appears to be the most "saturated",
@@ -621,6 +631,10 @@ export class Renderer extends EventDispatcher {
         this.canRender ? new TextureUtils(this.threeRenderer) : null;
     this.roughnessMipmapper = new RoughnessMipmapper(this.threeRenderer);
     CachingGLTFLoader.initializeKTX2Loader(this.threeRenderer);
+
+    this.canvas3D.addEventListener('webglcontextlost', this.onWebGLContextLost);
+    this.canvas3D.addEventListener(
+        'webglcontextrestored', this.onWebGLContextRestored);
 
     this.updateRendererSize();
     this.lastTick = performance.now();
@@ -668,8 +682,8 @@ export class Renderer extends EventDispatcher {
     const heightCSS = height / scale;
     // The canvas element must by styled outside of three due to the offscreen
     // canvas not being directly stylable.
-    this.canvasElement.style.width = `${widthCSS}px`;
-    this.canvasElement.style.height = `${heightCSS}px`;
+    this.canvas3D.style.width = `${widthCSS}px`;
+    this.canvas3D.style.height = `${heightCSS}px`;
 
     // Each scene's canvas must match the renderer size. In general they can be
     // larger than the element that contains them, but the overflow is hidden
@@ -704,8 +718,8 @@ export class Renderer extends EventDispatcher {
     const width = this.width / scale;
     const height = this.height / scale;
 
-    this.canvasElement.style.width = `${width}px`;
-    this.canvasElement.style.height = `${height}px`;
+    this.canvas3D.style.width = `${width}px`;
+    this.canvas3D.style.height = `${height}px`;
     for (const scene of this.scenes) {
       const {style} = scene.canvas;
       style.width = `${width}px`;
@@ -776,7 +790,8 @@ export class Renderer extends EventDispatcher {
     scene.isDirty = true;
 
     if (this.canRender && this.scenes.size > 0) {
-      this.threeRenderer.setAnimationLoop((time: number) => this.render(time));
+      this.threeRenderer.setAnimationLoop(
+          (time: number, frame?: any) => this.render(time, frame));
     }
 
     if (this.debugger != null) {
@@ -797,8 +812,7 @@ export class Renderer extends EventDispatcher {
   }
 
   displayCanvas(scene: ModelScene): HTMLCanvasElement {
-    return this.multipleScenesVisible ? scene.element[$canvas] :
-                                        this.canvasElement;
+    return this.multipleScenesVisible ? scene.element[$canvas] : this.canvas3D;
   }
 
   /**
@@ -809,36 +823,41 @@ export class Renderer extends EventDispatcher {
    */
   private selectCanvas() {
     let visibleScenes = 0;
-    let visibleInput = null;
+    let visibleCanvas = null;
     for (const scene of this.scenes) {
       const {element} = scene;
-      if (element.modelIsVisible) {
+      if (element.modelIsVisible && scene.externalRenderer == null) {
         ++visibleScenes;
-        visibleInput = element[$userInputElement];
+        visibleCanvas = scene.canvas;
       }
     }
-    const multipleScenesVisible = visibleScenes > 1 || USE_OFFSCREEN_CANVAS;
-    const {canvasElement} = this;
+    if (visibleCanvas == null) {
+      return;
+    }
+    const multipleScenesVisible = visibleScenes > 1;
+    const {canvas3D} = this;
 
     if (multipleScenesVisible === this.multipleScenesVisible &&
         (multipleScenesVisible ||
-         canvasElement.parentElement === visibleInput)) {
+         canvas3D.parentElement === visibleCanvas.parentElement)) {
       return;
     }
     this.multipleScenesVisible = multipleScenesVisible;
 
     if (multipleScenesVisible) {
-      canvasElement.classList.remove('show');
+      canvas3D.classList.remove('show');
     }
     for (const scene of this.scenes) {
-      const userInputElement = scene.element[$userInputElement];
+      if (scene.externalRenderer != null) {
+        continue;
+      }
       const canvas = scene.element[$canvas];
       if (multipleScenesVisible) {
         canvas.classList.add('show');
         scene.isDirty = true;
-      } else if (userInputElement === visibleInput) {
-        userInputElement.appendChild(canvasElement);
-        canvasElement.classList.add('show');
+      } else if (scene.canvas === visibleCanvas) {
+        scene.canvas.parentElement!.appendChild(canvas3D);
+        canvas3D.classList.add('show');
         canvas.classList.remove('show');
         scene.isDirty = true;
       }
@@ -884,7 +903,12 @@ export class Renderer extends EventDispatcher {
     }
   }
 
-  render(t: number) {
+  render(t: number, frame?: XRFrame) {
+    if (frame != null) {
+      this.arRenderer.onWebXRFrame(t, frame);
+      return;
+    }
+
     const delta = t - this.lastTick;
     this.lastTick = t;
 
@@ -904,7 +928,8 @@ export class Renderer extends EventDispatcher {
     const {dpr, scaleFactor} = this;
 
     for (const scene of this.orderedScenes()) {
-      if (!scene.element[$sceneIsReady]()) {
+      const {element} = scene;
+      if (!element.modelIsVisible && scene.renderCount > 0) {
         continue;
       }
 
@@ -913,15 +938,30 @@ export class Renderer extends EventDispatcher {
       if (!scene.isDirty) {
         continue;
       }
-      scene.isDirty = false;
-      ++scene.renderCount;
 
-      if (!scene.element.modelIsVisible && !this.multipleScenesVisible) {
+      if (scene.externalRenderer != null) {
+        const camera = scene.getCamera();
+        camera.updateMatrix();
+        const {matrix, projectionMatrix} = camera;
+        const viewMatrix = matrix.elements.slice();
+        const target = scene.getTarget();
+        viewMatrix[12] += target.x;
+        viewMatrix[13] += target.y;
+        viewMatrix[14] += target.z;
+
+        scene.externalRenderer.render({
+          viewMatrix: viewMatrix,
+          projectionMatrix: projectionMatrix.elements
+        });
+        continue;
+      }
+
+      if (!element.modelIsVisible && !this.multipleScenesVisible) {
         // Here we are pre-rendering on the visible canvas, so we must mark the
         // visible scene dirty to ensure it overwrites us.
-        for (const scene of this.scenes) {
-          if (scene.element.modelIsVisible) {
-            scene.isDirty = true;
+        for (const visibleScene of this.scenes) {
+          if (visibleScene.element.modelIsVisible) {
+            visibleScene.isDirty = true;
           }
         }
       }
@@ -938,30 +978,32 @@ export class Renderer extends EventDispatcher {
       this.threeRenderer.setRenderTarget(null);
       this.threeRenderer.setViewport(
           0, Math.floor(this.height * dpr) - height, width, height);
-      this.threeRenderer.render(scene, scene.getCamera());
+      this.threeRenderer.render(scene, scene.camera);
 
       if (this.multipleScenesVisible) {
         if (scene.context == null) {
           scene.createContext();
         }
-        if (USE_OFFSCREEN_CANVAS) {
-          const contextBitmap = scene.context as ImageBitmapRenderingContext;
-          const bitmap =
-              (this.canvas3D as OffscreenCanvas).transferToImageBitmap();
-          contextBitmap.transferFromImageBitmap(bitmap);
-        } else {
-          const context2D = scene.context as CanvasRenderingContext2D;
-          context2D.clearRect(0, 0, width, height);
-          context2D.drawImage(
-              this.canvas3D, 0, 0, width, height, 0, 0, width, height);
-        }
+        const context2D = scene.context as CanvasRenderingContext2D;
+        context2D.clearRect(0, 0, width, height);
+        context2D.drawImage(
+            this.canvas3D, 0, 0, width, height, 0, 0, width, height);
+      }
+
+      scene.isDirty = false;
+      if (element.loaded) {
+        ++scene.renderCount;
       }
     }
   }
 
-  dispose() {
+  dispose(): Array<ModelViewerElementBase> {
     if (this.textureUtils != null) {
       this.textureUtils.dispose();
+    }
+
+    if (this.roughnessMipmapper != null) {
+      this.roughnessMipmapper.dispose();
     }
 
     if (this.threeRenderer != null) {
@@ -971,14 +1013,31 @@ export class Renderer extends EventDispatcher {
     this.textureUtils = null;
     (this as any).threeRenderer = null;
 
-    this.scenes.clear();
+    const elements = [];
+    for (const scene of this.scenes) {
+      elements.push(scene.element);
+    }
 
     this.canvas3D.removeEventListener(
         'webglcontextlost', this.onWebGLContextLost);
+    this.canvas3D.removeEventListener(
+        'webglcontextrestored', this.onWebGLContextRestored);
+
+    return elements;
   }
 
   onWebGLContextLost = (event: Event) => {
     this.dispatchEvent(
         {type: 'contextlost', sourceEvent: event} as ContextLostEvent);
+  };
+
+  onWebGLContextRestored = () => {
+    this.textureUtils?.dispose();
+    this.textureUtils = new TextureUtils(this.threeRenderer);
+    this.roughnessMipmapper = new RoughnessMipmapper(this.threeRenderer);
+    for (const scene of this.scenes) {
+      (scene.element as any)[$updateEnvironment]();
+    }
+    this.threeRenderer.shadowMap.needsUpdate = true;
   };
 }

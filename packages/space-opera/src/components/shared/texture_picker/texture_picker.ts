@@ -19,15 +19,21 @@ import '@material/mwc-icon-button';
 import '../popup/popup.js';
 import '../../file_modal/file_modal.js';
 
-import {checkFinite, IMAGE_MIME_TYPES} from '@google/model-viewer-editing-adapter/lib/main.js'
-import {createSafeObjectURL, SafeObjectUrl} from '@google/model-viewer-editing-adapter/lib/util/create_object_url.js'
 import {customElement, html, LitElement, property, query} from 'lit-element';
 
 import {FileModalElement} from '../../file_modal/file_modal.js';
+import {createSafeObjectURL, SafeObjectUrl} from '../../utils/create_object_url.js';
+import {IMAGE_MIME_TYPES} from '../../utils/gltf_constants.js';
+import {checkFinite} from '../../utils/reducer_utils.js';
 
 import {styles} from './texture_picker.css.js';
 
 const ACCEPT_IMAGE_TYPE = IMAGE_MIME_TYPES.join(',');
+
+export interface FileDetails {
+  url: string;
+  type: string;
+}
 
 /**
  * LitElement for a texture picker which allows user to select one of the
@@ -59,7 +65,7 @@ export class TexturePicker extends LitElement {
                 type="radio"
                 name="textureSelect"
                 @click="${this.onTextureChange}">
-              <img class="TextureImage" src="${imageUrl.url}">
+              <img class="TextureImage" src="${imageUrl}">
             </label>
             `)}
           <div slot="label" id="nullTextureSquare" class="NullTextureSquareInList" @click=${
@@ -86,7 +92,7 @@ export class TexturePicker extends LitElement {
       return html`
           <div slot="label" class="TextureSquare">
           <img class="TextureImage" src="${
-          this.images[this.selectedIndex].url}"></div>`;
+          this.images[this.selectedIndex]}"></div>`;
     }
   }
 
@@ -129,7 +135,8 @@ export class TexturePicker extends LitElement {
     }
 
     const url = createSafeObjectURL(files[0]).unsafeUrl;
-    this.dispatchEvent(new CustomEvent('texture-uploaded', {detail: url}));
+    this.dispatchEvent(new CustomEvent<FileDetails>(
+        'texture-uploaded', {detail: {url, type: files[0].type}}));
   }
 }
 
