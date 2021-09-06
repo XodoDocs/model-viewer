@@ -368,7 +368,7 @@ export class Renderer extends EventDispatcher {
 
     const sceneChildren = [];
     scene.traverse(child => {
-      if (child.name !== 'measurement_entity' && child.name !== 'wireframe') {
+      if (child.name !== 'wireframe') {
         if (child.isMesh) {
           sceneChildren.push(child);
         }
@@ -438,7 +438,7 @@ export class Renderer extends EventDispatcher {
     const scene = this.scenes.values().next().value;
     const funcs = [];
     scene.traverse(child => {
-      if (child.isMesh && child.name !== 'measurement_entity') {
+      if (child.isMesh) {
         const vn = new VertexNormalsHelper(child, 0.05, 0xff0000);
         scene.add(vn);
         funcs.push(() => scene.remove(vn));
@@ -451,6 +451,7 @@ export class Renderer extends EventDispatcher {
 
   public setWireframe(willSet = true) {
     const scene = this.scenes.values().next().value;
+    const funcs = [];
     // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
 
     // https://stackoverflow.com/questions/37280995/threejs-remove-texture
@@ -458,27 +459,34 @@ export class Renderer extends EventDispatcher {
         new MeshBasicMaterial({color: 0xffffff, wireframe: true});
 
     scene.traverse(child => {
-      if (child.isMesh && child.name !== 'measurement_entity') {
-        if (willSet) {
-          child.oldMaterial = child.material;
-          child.material = wireframeMaterial;
-        } else {
-          child.material = child.oldMaterial;
-        }
+      if (child.isMesh) {
+        const oldMaterial = child.material;
+        child.material = wireframeMaterial;
+
+        funcs.push(() => child.material = oldMaterial);
       }
     });
 
-    if (willSet === true) {
-      return () => this.setWireframe(false);
+    // if (willSet === true) {
+    //   return () => {
+    //     // this.setWireframe(false);
+    //     scene.traverse(child => {
+    //       if (child.isMesh) {
+    //         child.material = child.oldMaterial;
+    //       }
+    //     });        
+    //   }
+    // }
+    return () => {
+      funcs.forEach(func => func());
     }
-    return () => {};
   }
 
   public setWireframeAndModel() {
     const scene = this.scenes.values().next().value;
     const funcs = [];
     scene.traverse(child => {
-      if (child.isMesh && child.name !== 'measurement_entity') {
+      if (child.isMesh) {
         const wireframeGeometry = new WireframeGeometry(child.geometry);
         const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
         const wireframe =
