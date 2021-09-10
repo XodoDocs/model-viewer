@@ -303,6 +303,7 @@ export class Renderer extends EventDispatcher {
       const line = new Line3();
       const closestPointPerLine = new Vector3();
       const intLocalPoint = intersection.point.clone();
+      // important to get snapping to work correctly
       intersection.object.worldToLocal(intLocalPoint);
       this.edgeLines.forEach(edgeLine => {
         const {position} = edgeLine.geometry.attributes;
