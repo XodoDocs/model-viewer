@@ -108,7 +108,6 @@ export class Renderer extends EventDispatcher {
   public dpr = 1;
 
   private foo = [];
-  private bvhs = [];
   private edgeLines = [];
 
   public isWireframe = false;
@@ -147,7 +146,11 @@ export class Renderer extends EventDispatcher {
     const scene = this.scenes.values().next().value;
     const target = scene.target;
 
-
+    // We make two new objects for the measurement points and add
+    // them to the scene.target so that they have the correct matrix
+    // relative to the model. So that if the model moves, when panning 
+    // for example, the screen points can be updated according to these
+    // objs added to the target.
     const obj1 = new Object3D();
     const obj2 = new Object3D();
     // const obj1 = new Mesh(
@@ -328,6 +331,7 @@ export class Renderer extends EventDispatcher {
       const dx = closestScreenPoint.x - intScreenPoint.x;
       const dy = closestScreenPoint.y - intScreenPoint.y;
       const distanceBetweenScreenPoints = Math.sqrt((dx * dx) + (dy * dy));
+      // arbitrary distance
       if (distanceBetweenScreenPoints > 11) {
         return intersection.point;
       }
