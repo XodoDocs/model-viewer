@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import {Euler, Event as ThreeEvent, EventDispatcher, PerspectiveCamera, Spherical} from 'three';
+import {Euler, Event as ThreeEvent, EventDispatcher, PerspectiveCamera, Spherical, Vector3} from 'three';
 
 import {TouchAction} from '../features/controls.js';
 import {clamp} from '../utilities.js';
@@ -271,6 +271,10 @@ export class SmoothControls extends EventDispatcher {
     this.camera.updateProjectionMatrix();
   }
 
+  setRadius2(radius) {
+    this.goalSpherical.radius = radius;
+  }
+
   /**
    * Set the absolute orbital goal of the camera. The change will be
    * applied over a number of frames depending on configured acceleration and
@@ -279,6 +283,7 @@ export class SmoothControls extends EventDispatcher {
    * Returns true if invoking the method will result in the camera changing
    * position and/or rotation, otherwise false.
    */
+  // NOTES BY KRISTIAN: https://irrlicht.sourceforge.io/forum/viewtopic.php?t=17033
   setOrbit(
       goalTheta: number = this.goalSpherical.theta,
       goalPhi: number = this.goalSpherical.phi,
@@ -304,6 +309,8 @@ export class SmoothControls extends EventDispatcher {
 
     const nextPhi = clamp(goalPhi, minimumPolarAngle!, maximumPolarAngle!);
     const nextRadius = clamp(goalRadius, minimumRadius!, maximumRadius!);
+    // const nextRadius = goalRadius;
+    // console.log('nextRadius', nextRadius, goalRadius);
 
     if (nextTheta === theta && nextPhi === phi && nextRadius === radius) {
       return false;
@@ -380,6 +387,7 @@ export class SmoothControls extends EventDispatcher {
             Math.min(
                 isFinite(deltaRatio) ? deltaRatio : Infinity,
                 maximumRadius! - minimumRadius!);
+    console.log(goalRadius);
     this.setOrbit(goalTheta, goalPhi, goalRadius);
 
     if (deltaZoom !== 0) {
@@ -398,6 +406,92 @@ export class SmoothControls extends EventDispatcher {
 
   triggerReRender() {
     this.dispatchEvent({type: 'change', source: ChangeSource.NONE});
+  }
+
+  // BY KRISTIAN
+  fitCameraToObject(object, offset) {
+    // TAKEN FROM: https://stackoverflow.com/a/64571830
+    // TODO: Need to convert to spherical coordinates from cartesian: https://irrlicht.sourceforge.io/forum/viewtopic.php?t=17033
+    
+    offset = offset || 1.25;
+
+    const center = new Vector3();
+    object.geometry.computeBoundingSphere();
+    object.geometry.boundingBox.getCenter(center);
+
+    // const center = boundingBox.getCenter();
+
+    const size = new Vector3();
+    object.geometry.boundingBox.getSize(size);
+    // console.log(center, size);
+
+    // // get the max side of the bounding box (fits to width OR height as needed )
+    const maxDim = Math.max( size.x, size.y, size.z );
+    const fov = this.camera.fov * ( Math.PI / 180 );
+    // let cameraZ = Math.abs( maxDim / 4 * Math.tan( fov * 2 ) );
+
+    // cameraZ *= offset; // zoom out a little so that objects don't fill the screen
+
+    // this.camera.position.z = cameraZ;
+
+    // const minZ = object.geometry.boundingBox.min.z;
+    // const cameraToFarEdge = ( minZ < 0 ) ? -minZ + cameraZ : cameraZ - minZ;
+
+    // this.camera.far = cameraToFarEdge * 3;
+    // this.camera.updateProjectionMatrix();
+
+    object.geometry.computeBoundingSphere();
+    let bs = object.geometry.boundingSphere;
+    let bsWorld = bs.center.clone();
+    object.localToWorld(bsWorld);
+
+    let cameraDir = new Vector3();
+    this.camera.getWorldDirection(cameraDir);
+    console.log(cameraDir);
+    console.log(Math.sqrt(cameraDir.x*cameraDir.x + cameraDir.y*cameraDir.y+ cameraDir.z*cameraDir.z));
+
+    let vFoV = this.camera.getEffectiveFOV();
+    let hFoV = this.camera.fov * this.camera.aspect;
+  
+    let FoV = Math.min(vFoV, hFoV);
+    let FoV2 = FoV / 2;
+    
+
+    let th = FoV2 * Math.PI / 180.0;
+    let sina = Math.sin(th);
+    let R = bs.radius;
+    let FL = R / sina;
+
+    
+    let cameraOffs = cameraDir.clone();
+    cameraOffs.multiplyScalar(-FL);
+    let newCameraPos = bsWorld.clone().add(cameraOffs);
+    
+    console.log('fov2', FoV2, FL, newCameraPos);
+
+    this.camera.position.copy(newCameraPos);
+    this.camera.lookAt(bsWorld);
+
+    // const c = newCameraPos.clone()
+
+    // The radius is actually the difference between the new position 
+    // and the center of the bounding sphere
+    newCameraPos.sub(bsWorld);
+    // console.log('newCameraPos', c);
+
+    const { x, y, z } = newCameraPos;
+    const theta = Math.atan2(y, x);
+    const phi = Math.sqrt(x * x + y * y) / z;
+    const radius = Math.sqrt((x * x) + (y * y) + (z * z));
+
+    const { radius: currRadius } = this.goalSpherical;
+    // console.log(theta, phi, radius);
+    console.log(R, radius);
+    // this.adjustOrbit(0, 0, -(radius));
+    // https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/lookat-function
+    // this.setOrbit(0, 0, radius);
+    this.setRadius2(radius);
+    return radius;
   }
 
   zoomIn() {

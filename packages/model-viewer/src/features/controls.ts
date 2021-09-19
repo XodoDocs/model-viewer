@@ -432,6 +432,26 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
       return this[$renderer].getMeasurePoint(...args);
     }
 
+    getFirstIntWithMouse(...args) {
+      return this[$renderer].getFirstIntWithMouse(...args);
+    }
+
+    highlightObject(...args) {
+      return this[$renderer].highlightObject(...args);
+    }
+
+    hideObject(...args) {
+      return this[$renderer].hideObject(...args);
+    }
+    
+    showOnlyObject(...args) {
+      return this[$renderer].showOnlyObject(...args);
+    }
+
+    setTargetToObjectCenter(...args) {
+      return this[$renderer].setTargetToObjectCenter(...args);
+    }
+
     createDistanceMeasurement(...args): Array<Object3D> {
       return this[$renderer].createDistanceMeasurement(...args);
     }
@@ -442,6 +462,10 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
 
     triggerReRender(): void {
       this[$controls].triggerReRender();
+    }
+
+    fitCameraToObject(...args) {
+      return this[$controls].fitCameraToObject(...args);
     }
 
     zoomIn(): void {

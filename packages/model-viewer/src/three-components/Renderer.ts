@@ -150,7 +150,10 @@ export class Renderer extends EventDispatcher {
     // them to the scene.target so that they have the correct matrix
     // relative to the model. So that if the model moves, when panning 
     // for example, the screen points can be updated according to these
-    // objs added to the target.
+    // objs added to the target. They MUST be added to the target, adding
+    // to scene won't work. This is because the objs need to be relative 
+    // to the target. Panning is not actually moving the camera, it is 
+    // moving the target.
     const obj1 = new Object3D();
     const obj2 = new Object3D();
     // const obj1 = new Mesh(
@@ -258,11 +261,12 @@ export class Renderer extends EventDispatcher {
     };
   }
 
-  // We have to pass in canvas because the model viewer canvas
-  // changes width and height randomly
-  public getMeasurePoint(e, canvas, {
-    snapToEdge,
-  }) {
+  public getFirstIntWithMouse(e, canvas) {
+    if (!canvas) {
+      return {
+        hit: false,
+      }
+    }
     const pos = this.getCanvasRelativePosition(e, canvas);
     const mouse = {
       x: (pos.x / canvas.width) * 2 - 1,
@@ -275,18 +279,167 @@ export class Renderer extends EventDispatcher {
 
     const sceneMeshes = [];
     scene.traverse(child => {
-      // if (child.name !== 'measurement_entity' && child.name !==
-      // 'wireframe') {
       if (child.isMesh) {
         sceneMeshes.push(child);
       }
-      // }
     });
 
     // calculate objects intersecting the picking ray
     const intersects = raycaster.intersectObjects(
         sceneMeshes,
     );
+    const firstInt = intersects[0];
+    if (typeof firstInt !== 'undefined') {
+      return {
+        hit: true,
+        intersection: firstInt,
+      };
+    }
+    return {
+      hit: false,
+    };
+  }
+
+  public highlightObject(object) {
+    const scene = this.scenes.values().next().value;
+    const funcs = [];
+    if (object.type === 'Mesh') {
+      if (object.material.emissive) {
+        const oldEmissiveHex = object.material.emissive.getHex();
+        const oldEmissiveIntensity = object.material.emissiveIntensity;
+        funcs.push(() => {
+          if (object.material.emissive) {
+            object.material.emissive.setHex(oldEmissiveHex);
+            object.material.emissiveIntensity = oldEmissiveIntensity;
+          }
+        });
+
+        const cloned = object.material.clone();
+        cloned.emissive.setHex('0xffff00');
+        cloned.emissiveIntensity = 0.4;
+        object.material = cloned;
+      }
+    }
+    if (object.children) {
+      object.children.forEach(child => {
+        funcs.push(this.highlightObject(child));
+      });
+    }
+    scene.isDirty = true;
+    
+    return () => {
+      funcs.forEach(func => {
+        func();
+      });
+      scene.isDirty = true;
+    };    
+  }
+
+  public setTargetToObjectCenter(object) {
+    const center = new Vector3();
+    // object.geometry.center();
+    object.geometry.computeBoundingBox();
+    object.geometry.boundingBox.getCenter(center);
+    // // console.log(position, center);
+    // // console.log(position);
+    
+    console.log('object', object);
+    const scene = this.scenes.values().next().value;
+    const target = scene.target;
+    console.log('target', target);
+
+    // Convert target space
+    // Do this in two steps
+    // Taken from: https://discourse.threejs.org/t/finding-position-of-an-object-relative-to-a-parent/2068/2
+    object.localToWorld(center);
+    target.worldToLocal(center);
+    this.sphere = new Mesh(
+        new SphereGeometry(0.01, 32, 32),
+        new MeshBasicMaterial({
+          color: 0x00FF00,
+          wireframe: true,
+        }),
+    );
+    // this.sphere.geometry.center();
+    // this.sphere.position.set(1,1,1);
+    // // const scene = this.scenes.values().next().value;
+    // target.add(this.sphere);
+
+    // this.sphere.position.set(center.x, center.y, center.z);
+    // object.add(this.sphere);
+
+    // // oldTarget = modelViewerElement.cameraTarget;
+    // scene.setTarget(1, 1, 1);
+    scene.setTarget(center.x, center.y, center.z);
+    
+    // // modelViewerElement.cameraTarget = `${center.x}m ${center.y}m ${center.z}m`;    
+  }
+
+  public hideObject(object) {
+    const scene = this.scenes.values().next().value;
+    object.visible = false;
+    scene.isDirty = true;
+    return () => {
+      object.visible = true;
+      scene.isDirty = true;
+    }
+  }
+
+  public showOnlyObject(object) {
+    const funcs = [];
+    const scene = this.scenes.values().next().value;
+    scene.traverse(child => {
+      child.visible = false;
+    });
+    object.visible = true;
+    let parent = object.parent;
+    while (parent) {
+      parent.visible = true;
+      parent = parent.parent;
+    }
+    scene.isDirty = true;
+    return () => {
+      scene.traverse(child => {
+        if (child.name !== 'wv_entity') {
+          child.visible = true;
+        }
+      });
+      scene.isDirty = true;
+    };
+  }
+
+  // We have to pass in canvas because the model viewer canvas
+  // changes width and height randomly
+  public getMeasurePoint(e, canvas, {
+    snapToEdge,
+  }) {
+    if (!canvas) {
+      return {
+        hit: false,
+      }
+    }    
+    const pos = this.getCanvasRelativePosition(e, canvas);
+    const mouse = {
+      x: (pos.x / canvas.width) * 2 - 1,
+      y: -(pos.y / canvas.height) * 2 + 1,
+    };
+    console.log('mouse-getmeasurepoint', mouse);
+    const scene = this.scenes.values().next().value;
+    // update the picking ray with the camera and mouse position
+    raycaster.setFromCamera(mouse, scene.getCamera());
+
+    const sceneMeshes = [];
+    scene.traverse(child => {
+      if (child.isMesh) {
+        sceneMeshes.push(child);
+      }
+    });
+
+    // calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(
+        sceneMeshes,
+    );
+    console.log('intersects', intersects);
     const firstInt = intersects[0];
     if (typeof firstInt !== 'undefined') {
       const vector =
@@ -360,55 +513,20 @@ export class Renderer extends EventDispatcher {
     // return worldPoint;
   }
 
-  public onDocumentMouseDown(event, canvas, {snapToEdge = false} = {}) {
-    const pos = this.getCanvasRelativePosition(event, canvas);
-    const mouse = {
-      x: (pos.x / canvas.width) * 2 - 1,
-      y: -(pos.y / canvas.height) * 2 + 1,
-    };
-
-    const scene = this.scenes.values().next().value;
-    // update the picking ray with the camera and mouse position
-    raycaster.setFromCamera(mouse, scene.getCamera());
-
-    const sceneChildren = [];
-    scene.traverse(child => {
-      if (child.name !== 'wireframe') {
-        if (child.isMesh) {
-          sceneChildren.push(child);
-        }
-      }
-    });
-
-    // calculate objects intersecting the picking ray
-    const intersects = raycaster.intersectObjects(
-        // scene.children.filter(child => child.name !== 'measurement_group'),
-        scene.children,
-    );
-
-    const firstInt = intersects[0];
-    if (typeof firstInt !== 'undefined') {
-      return {
-        hit: true,
-        intersection: firstInt,
-      };
-    }
-    return {
-      hit: false,
-    };
-  }
-
   public setEdges() {
+    const scene = this.scenes.values().next().value;
     const funcs = [];
     this.edgeLines.forEach(edgeLine => {
       edgeLine.visible = true;
       funcs.push(() => edgeLine.visible = false);
     });
+    scene.isDirty = true;
 
     return () => {
       this.edgeLines.forEach(edgeLine => {
         edgeLine.visible = false;
       });
+      scene.isDirty = true;
     };
   }
 
@@ -449,8 +567,10 @@ export class Renderer extends EventDispatcher {
         funcs.push(() => scene.remove(vn));
       }
     });
+    scene.isDirty = true;
     return () => {
       funcs.forEach(func => func());
+      scene.isDirty = true;
     };
   }
 
@@ -471,19 +591,11 @@ export class Renderer extends EventDispatcher {
         funcs.push(() => child.material = oldMaterial);
       }
     });
+    scene.isDirty = true;
 
-    // if (willSet === true) {
-    //   return () => {
-    //     // this.setWireframe(false);
-    //     scene.traverse(child => {
-    //       if (child.isMesh) {
-    //         child.material = child.oldMaterial;
-    //       }
-    //     });        
-    //   }
-    // }
     return () => {
       funcs.forEach(func => func());
+      scene.isDirty = true;
     }
   }
 
@@ -535,6 +647,7 @@ export class Renderer extends EventDispatcher {
         }
       }
     });
+    scene.isDirty = true;
   }
 
   public toggleWireframeAndModel(): void {
@@ -565,6 +678,7 @@ export class Renderer extends EventDispatcher {
     } else {
       this.foo.forEach(a => a());
     }
+    scene.isDirty = true;
   }
 
   public getChildren(): Array<Object3D> {
