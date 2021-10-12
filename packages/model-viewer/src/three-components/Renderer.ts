@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, Event, EventDispatcher, GammaEncoding, PCFSoftShadowMap, WebGLRenderer} from 'three';
+import {ACESFilmicToneMapping, Box3, Event, EventDispatcher, GammaEncoding, PCFSoftShadowMap, WebGLRenderer} from 'three';
 import {EdgesGeometry, Line3, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Object3D, Raycaster, SphereGeometry, Vector3, WireframeGeometry} from 'three';
 // modified to work with child
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
@@ -107,7 +107,6 @@ export class Renderer extends EventDispatcher {
   public height = 0;
   public dpr = 1;
 
-  private foo = [];
   private edgeLines = [];
 
   public isWireframe = false;
@@ -156,44 +155,18 @@ export class Renderer extends EventDispatcher {
     // moving the target.
     const obj1 = new Object3D();
     const obj2 = new Object3D();
-    // const obj1 = new Mesh(
-    //     new SphereGeometry(0.03),
-    //     new MeshBasicMaterial(),
-    // );
-    // obj1.material.color.setHex('0x000000');
-
-    // const obj2 = new Mesh(
-    //     new SphereGeometry(0.03),
-    //     new MeshBasicMaterial(),
-    // );
-    // obj2.material.color.setHex('0x000000');
-    // obj2.identifier = 'id-mything';
-    // obj2.position.set(point2.x, point2.y, point2.z);
-
-    // target.add(obj1);
-
-    // This works for the point above
-    // scene.add(obj1);
 
     target.add(obj1);
     obj1.updateMatrixWorld();
-    // const newPoint1 = firstPoint.clone();
     obj1.worldToLocal(firstPoint);
     obj1.position.copy(firstPoint);
 
     target.add(obj2);
     obj2.updateMatrixWorld();
-    // const newPoint2 = secondPoint.clone();
     obj2.worldToLocal(secondPoint);
     obj2.position.copy(secondPoint);
 
     scene.isDirty = true;
-
-    // // Midpoint: https://stackoverflow.com/a/58580387
-    // let dir = secondPoint.clone().sub(firstPoint);
-    // const length = dir.length();
-    // dir = dir.normalize().multiplyScalar(length * .5);
-    // const midPoint = firstPoint.clone().add(dir);
 
     const getScreenPoints =
         (screenWidth, screenHeight) => {
@@ -230,12 +203,6 @@ export class Renderer extends EventDispatcher {
   public getWorldPoint(screenPoint, zPlane, canvas) {
     const scene = this.scenes.values().next().value;
     const camera = scene.getCamera();
-
-
-    // const pos = this.getCanvasRelativePosition({
-    //   clientX: screenPoint.x,
-    //   clientY: screenPoint.y,
-    // }, canvas);
 
     const mouse = {
       x: (screenPoint.x / canvas.width) * 2 - 1,
@@ -302,12 +269,12 @@ export class Renderer extends EventDispatcher {
 
   public highlightObject(object) {
     const scene = this.scenes.values().next().value;
-    const funcs = [];
+    const undoFunctions = [];
     if (object.type === 'Mesh') {
       if (object.material.emissive) {
         const oldEmissiveHex = object.material.emissive.getHex();
         const oldEmissiveIntensity = object.material.emissiveIntensity;
-        funcs.push(() => {
+        undoFunctions.push(() => {
           if (object.material.emissive) {
             object.material.emissive.setHex(oldEmissiveHex);
             object.material.emissiveIntensity = oldEmissiveIntensity;
@@ -322,13 +289,13 @@ export class Renderer extends EventDispatcher {
     }
     if (object.children) {
       object.children.forEach(child => {
-        funcs.push(this.highlightObject(child));
+        undoFunctions.push(this.highlightObject(child));
       });
     }
     scene.isDirty = true;
     
     return () => {
-      funcs.forEach(func => {
+      undoFunctions.forEach(func => {
         func();
       });
       scene.isDirty = true;
@@ -337,42 +304,27 @@ export class Renderer extends EventDispatcher {
 
   public setTargetToObjectCenter(object) {
     const center = new Vector3();
-    // object.geometry.center();
-    object.geometry.computeBoundingBox();
-    object.geometry.boundingBox.getCenter(center);
-    // // console.log(position, center);
-    // // console.log(position);
+
+    let bb = new Box3().setFromObject(object);
+    // World coordinates
+    bb.getCenter(center);
     
-    console.log('object', object);
     const scene = this.scenes.values().next().value;
     const target = scene.target;
-    console.log('target', target);
 
-    // Convert target space
-    // Do this in two steps
-    // Taken from: https://discourse.threejs.org/t/finding-position-of-an-object-relative-to-a-parent/2068/2
-    object.localToWorld(center);
     target.worldToLocal(center);
-    this.sphere = new Mesh(
-        new SphereGeometry(0.01, 32, 32),
-        new MeshBasicMaterial({
-          color: 0x00FF00,
-          wireframe: true,
-        }),
-    );
-    // this.sphere.geometry.center();
-    // this.sphere.position.set(1,1,1);
-    // // const scene = this.scenes.values().next().value;
-    // target.add(this.sphere);
-
-    // this.sphere.position.set(center.x, center.y, center.z);
-    // object.add(this.sphere);
-
-    // // oldTarget = modelViewerElement.cameraTarget;
-    // scene.setTarget(1, 1, 1);
     scene.setTarget(center.x, center.y, center.z);
-    
-    // // modelViewerElement.cameraTarget = `${center.x}m ${center.y}m ${center.z}m`;    
+    return scene.target;    
+  }
+
+  public showAllObjects() {
+    const scene = this.scenes.values().next().value;
+    scene.traverse(child => {
+      if (child.name !== 'wv_entity') {
+        child.visible = true;
+      }
+    });
+    scene.isDirty = true;
   }
 
   public hideObject(object) {
@@ -386,7 +338,6 @@ export class Renderer extends EventDispatcher {
   }
 
   public showOnlyObject(object) {
-    const funcs = [];
     const scene = this.scenes.values().next().value;
     scene.traverse(child => {
       child.visible = false;
@@ -397,6 +348,11 @@ export class Renderer extends EventDispatcher {
       parent.visible = true;
       parent = parent.parent;
     }
+    object.traverse(child => {
+      if (child.name !== 'wv_entity') {
+        child.visible = true;
+      }
+    });
     scene.isDirty = true;
     return () => {
       scene.traverse(child => {
@@ -439,7 +395,6 @@ export class Renderer extends EventDispatcher {
     const intersects = raycaster.intersectObjects(
         sceneMeshes,
     );
-    console.log('intersects', intersects);
     const firstInt = intersects[0];
     if (typeof firstInt !== 'undefined') {
       const vector =
@@ -493,24 +448,6 @@ export class Renderer extends EventDispatcher {
       return closestVector;
     }
     return intersection.point;
-    // const faceData =
-    //   [intersection.face.a, intersection.face.b, intersection.face.c];
-
-    // const {position} = intersection.object.geometry.attributes;
-    // const vertices = faceData.map(vId => {
-    //   const vector = new Vector3();
-    //   vector.fromBufferAttribute(position, vId);
-    //   vector.distance = intersection.object.localToWorld(vector.clone())
-    //                         .distanceTo(intersection.point);
-    //   return vector;
-    // });
-
-    // vertices.sort(function(a, b) {
-    //   return a.distance - b.distance;
-    // });
-
-    // const worldPoint = intersection.object.localToWorld(vertices[0]);
-    // return worldPoint;
   }
 
   public setEdges() {
@@ -568,13 +505,14 @@ export class Renderer extends EventDispatcher {
       }
     });
     scene.isDirty = true;
+
     return () => {
       funcs.forEach(func => func());
       scene.isDirty = true;
     };
   }
 
-  public setWireframe(willSet = true) {
+  public setWireframe() {
     const scene = this.scenes.values().next().value;
     const funcs = [];
     // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
@@ -614,71 +552,12 @@ export class Renderer extends EventDispatcher {
         funcs.push(() => child.remove(wireframe));
       }
     });
+    scene.isDirty = true;
+
     return () => {
       funcs.forEach(func => func());
+      scene.isDirty = true;
     }
-  }
-
-  public toggleWireframe(): void {
-    const scene = this.scenes.values().next().value;
-    // https://discourse.threejs.org/t/proper-way-of-adding-and-removing-a-wireframe/4600
-
-    // https://stackoverflow.com/questions/37280995/threejs-remove-texture
-    const wireframeMaterial =
-        new MeshBasicMaterial({color: 0xffffff, wireframe: true});
-
-    if (this.isWireframeAndModel) {
-      this.toggleWireframeAndModel();
-    }
-
-    if (!this.isWireframe) {
-      this.isWireframe = true;
-    } else {
-      this.isWireframe = false;
-    }
-
-    scene.traverse(child => {
-      if (child.isMesh) {
-        if (this.isWireframe) {
-          child.oldMaterial = child.material;
-          child.material = wireframeMaterial;
-        } else {
-          child.material = child.oldMaterial;
-        }
-      }
-    });
-    scene.isDirty = true;
-  }
-
-  public toggleWireframeAndModel(): void {
-    const scene = this.scenes.values().next().value;
-
-    if (this.isWireframe) {
-      this.toggleWireframe();
-    }
-    if (!this.isWireframeAndModel) {
-      this.isWireframeAndModel = true;
-    } else {
-      this.isWireframeAndModel = false;
-    }
-
-    if (this.isWireframeAndModel) {
-      scene.traverse(child => {
-        if (child.isMesh) {
-          const wireframeGeometry = new WireframeGeometry(child.geometry);
-          const wireframeMaterial = new LineBasicMaterial({color: 0xFFFFFF});
-          const wireframe =
-              new LineSegments(wireframeGeometry, wireframeMaterial);
-
-          wireframe.name = 'wireframe';
-          child.add(wireframe);
-          this.foo.push(() => child.remove(wireframe));
-        }
-      });
-    } else {
-      this.foo.forEach(a => a());
-    }
-    scene.isDirty = true;
   }
 
   public getChildren(): Array<Object3D> {

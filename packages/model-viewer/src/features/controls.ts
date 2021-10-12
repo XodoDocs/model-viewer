@@ -435,13 +435,17 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
     getFirstIntWithMouse(...args) {
       return this[$renderer].getFirstIntWithMouse(...args);
     }
-
+    
     highlightObject(...args) {
       return this[$renderer].highlightObject(...args);
     }
 
     hideObject(...args) {
       return this[$renderer].hideObject(...args);
+    }
+    
+    showAllObjects(...args) {
+      return this[$renderer].showAllObjects(...args);
     }
     
     showOnlyObject(...args) {
