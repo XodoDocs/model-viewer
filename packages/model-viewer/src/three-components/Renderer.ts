@@ -209,6 +209,7 @@ export class Renderer extends EventDispatcher {
       y: -(screenPoint.y / canvas.height) * 2 + 1,
     };
 
+      // screenPoint + zPlane gives you a world point after unprojecting with the camera
     const vector = new Vector3(mouse.x, mouse.y, zPlane).unproject(camera);
     return vector;
   }
@@ -220,6 +221,8 @@ export class Renderer extends EventDispatcher {
     clonedVector.copy(point);
     // Taken from:
     // https://discourse.threejs.org/t/how-to-converting-world-coordinates-to-2d-mouse-coordinates-in-threejs/2251
+    // world point projected with a camera 
+    // z value is the zPlane point
     clonedVector.project(camera);
     return {
       x: (clonedVector.x + 1) * screenWidth / 2,
