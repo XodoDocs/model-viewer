@@ -432,6 +432,10 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
       return this[$renderer].getMeasurePoint(...args);
     }
 
+    forceRender(...args) {
+      return this[$renderer].forceRender(...args);
+    }
+
     getFirstIntWithMouse(...args) {
       return this[$renderer].getFirstIntWithMouse(...args);
     }

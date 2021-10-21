@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {ACESFilmicToneMapping, Box3, Event, EventDispatcher, GammaEncoding, PCFSoftShadowMap, WebGLRenderer} from 'three';
+import {BoxHelper, ACESFilmicToneMapping, Box3, Event, EventDispatcher, GammaEncoding, PCFSoftShadowMap, WebGLRenderer} from 'three';
 import {EdgesGeometry, Line3, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, Object3D, Raycaster, SphereGeometry, Vector3, WireframeGeometry} from 'three';
 // modified to work with child
 import {VertexNormalsHelper} from 'three/examples/jsm/helpers/VertexNormalsHelper.js';
@@ -231,6 +231,11 @@ export class Renderer extends EventDispatcher {
     };
   }
 
+  public forceRender() {
+    const scene = this.scenes.values().next().value;
+    scene.isDirty = true;
+  }
+
   public getFirstIntWithMouse(e, canvas) {
     if (!canvas) {
       return {
@@ -308,16 +313,18 @@ export class Renderer extends EventDispatcher {
   public setTargetToObjectCenter(object) {
     const center = new Vector3();
 
-    let bb = new Box3().setFromObject(object);
+    let boundingBox = new Box3().setFromObject(object);
     // World coordinates
-    bb.getCenter(center);
-    
+    boundingBox.getCenter(center);
+   
     const scene = this.scenes.values().next().value;
     const target = scene.target;
 
+    // Change to local coordinates because that seems
+    // to be the camera
     target.worldToLocal(center);
     scene.setTarget(center.x, center.y, center.z);
-    return scene.target;    
+    // return scene.getCameraTarget();    
   }
 
   public showAllObjects() {
@@ -421,7 +428,7 @@ export class Renderer extends EventDispatcher {
         for (let i = 0; i < position.count - 1; i += 2) {
           line.start.fromBufferAttribute(position, i);
           line.end.fromBufferAttribute(position, i + 1);
-          // clamp to true because if not then point is wrong
+          // clamp to true because this is a finite line
           line.closestPointToPoint(intLocalPoint, true, closestPointPerLine);
 
           intersection.object.localToWorld(closestPointPerLine);
@@ -570,7 +577,17 @@ export class Renderer extends EventDispatcher {
     while (children && children.length === 1) {
       children = children[0].children;
     }
-    return children;
+    const parent = scene.children[0].children[0].children[0];
+    console.log('parent', parent);
+
+    if (!this.foo123) {
+      this.foo123 = true;
+      const boxHelper = new BoxHelper(parent);
+      boxHelper.material.color.set( 0xffffff );
+      scene.add(boxHelper);      
+    }
+
+    return { children, parent };
   }
 
   protected debugger: Debugger|null = null;
@@ -751,8 +768,14 @@ export class Renderer extends EventDispatcher {
     // );
     // this.sphere.geometry.center();
     // this.sphere.position.set(0, 0, -10);
-    // // const scene = this.scenes.values().next().value;
+    // const scene = this.scenes.values().next().value;
     // scene.add(this.sphere);
+
+    // console.log('skdfjlksdfjlsdfjsdf----', scene.children[0].children[0].children);
+
+    // const boxHelper = new BoxHelper(g);
+    // boxHelper.material.color.set( 0xffffff );
+    // scene.add(boxHelper);
 
     // sphere.renderOrder = 99999999;
     // sphere.onBeforeRender = function( renderer ) {
