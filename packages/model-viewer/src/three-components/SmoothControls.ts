@@ -50,11 +50,13 @@ export interface SmoothControlsOptions {
   touchAction?: TouchAction;
 }
 
+// Default_options for the setting( The old polarAngle was between Math.PI/8( 180/8 deg ) and Math.PI - Math.PI / 8 ( 180deg - (180 / 8)deg ) )
+// So I updated the default max and min polarAngle to -Infinity and Infinity.
 export const DEFAULT_OPTIONS = Object.freeze<SmoothControlsOptions>({
   minimumRadius: 0,
   maximumRadius: Infinity,
-  minimumPolarAngle: Math.PI / 8,
-  maximumPolarAngle: Math.PI - Math.PI / 8,
+  minimumPolarAngle: -Infinity,
+  maximumPolarAngle: Infinity,
   minimumAzimuthalAngle: -Infinity,
   maximumAzimuthalAngle: Infinity,
   minimumFieldOfView: 10,
@@ -313,7 +315,6 @@ export class SmoothControls extends EventDispatcher {
     this.goalSpherical.theta = nextTheta;
     this.goalSpherical.phi = nextPhi;
     this.goalSpherical.radius = nextRadius;
-    this.goalSpherical.makeSafe();
 
     this.isUserChange = false;
 
@@ -438,7 +439,7 @@ export class SmoothControls extends EventDispatcher {
     let cameraOffs = cameraDir.clone();
     cameraOffs.multiplyScalar(-FL);
     // console.log(cameraOffs, bsWorld);
-    let newCameraPos = bsWorld.clone().add(cameraOffs);
+    // let newCameraPos = bsWorld.clone().add(cameraOffs);
     // console.log(newCameraPos);
     
     // // Note: This doesn't seem to be neeeded
@@ -459,7 +460,7 @@ export class SmoothControls extends EventDispatcher {
     // const theta = Math.atan2(y, x);
     // const phi = Math.sqrt(x * x + y * y) / z;
     // const radius = Math.sqrt((x * x) + (y * y) + (z * z));
-    console.log('vFov hFov', vFoV, hFoV, FL, this.getFieldOfView());
+    // console.log('vFov hFov', vFoV, hFoV, FL, this.getFieldOfView());
     // console.log(theta, phi, radius);
     // this.adjustOrbit(0, 0, -(radius));
     // https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/lookat-function
@@ -469,7 +470,7 @@ export class SmoothControls extends EventDispatcher {
     console.log('setting spherical2222');
     this.spherical.radius = FL;
     this.jumpToGoal();
-    // this.setFieldOfView(FoV);
+    this.setFieldOfView(FoV);
     return this.goalSpherical;
   }
 
@@ -504,8 +505,12 @@ export class SmoothControls extends EventDispatcher {
     this.spherical.theta = this.thetaDamper.update(
         this.spherical.theta, this.goalSpherical.theta, delta, Math.PI);
 
+    // the last parameter of the this.phiDampler.update() function was the maximumPolarAngle
+    // maximumPolarAngle was Math.PI - Math.PI / 8, but now it is Infinity.
+    // This parameter is the smooth speed when the user rotate model.
+    // So I have updated the code as Math.PI(similar value of old one)
     this.spherical.phi = this.phiDamper.update(
-        this.spherical.phi, this.goalSpherical.phi, delta, maximumPolarAngle!);
+        this.spherical.phi, this.goalSpherical.phi, delta, Math.PI);
 
     // console.log('before update----', this.spherical.radius);
     this.spherical.radius = this.radiusDamper.update(
@@ -527,7 +532,6 @@ export class SmoothControls extends EventDispatcher {
 
   private moveCamera() {
     // Derive the new camera position from the updated spherical:
-    this.spherical.makeSafe();
     this.camera.position.setFromSpherical(this.spherical);
     this.camera.setRotationFromEuler(new Euler(
         this.spherical.phi - Math.PI / 2, this.spherical.theta, 0, 'YXZ'));

@@ -578,15 +578,7 @@ export class Renderer extends EventDispatcher {
       children = children[0].children;
     }
     const parent = scene.children[0].children[0].children[0];
-    console.log('parent', parent);
-
-    if (!this.foo123) {
-      this.foo123 = true;
-      const boxHelper = new BoxHelper(parent);
-      boxHelper.material.color.set( 0xffffff );
-      scene.add(boxHelper);      
-    }
-
+    
     return { children, parent };
   }
 

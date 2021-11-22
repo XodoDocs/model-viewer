@@ -152,7 +152,7 @@ const minCameraOrbitIntrinsics = (element: ModelViewerElementBase) => {
   return {
     basis: [
       numberNode(-Infinity, 'rad'),
-      numberNode(Math.PI / 8, 'rad'),
+      numberNode(-Infinity, 'rad'), // This is the value of the minimumPolarAngle when parameter is 'auto'. I have updated the Math.PI / 8 to -Infinity to rotate infinitly.
       numberNode(radius, 'm')
     ],
     keywords: {auto: [null, null, null]}
@@ -167,7 +167,7 @@ const maxCameraOrbitIntrinsics = (element: ModelViewerElementBase) => {
   return {
     basis: [
       numberNode(Infinity, 'rad'),
-      numberNode(Math.PI - Math.PI / 8, 'rad'),
+      numberNode(Infinity, 'rad'), // This is the value of the maximumPolarAngle when parameter is 'auto'. I have updated the Math.PI - Math.PI / 8 to Infinity to rotate infinitly.
       numberNode(defaultRadius, 'm')
     ],
     keywords: {auto: [null, null, null]}
