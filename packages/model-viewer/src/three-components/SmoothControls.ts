@@ -415,64 +415,124 @@ export class SmoothControls extends EventDispatcher {
     bb.getSize(size);
 
     const bs = bb.getBoundingSphere(new Sphere(center));
-    
     let bsWorld = bs.center.clone();
     object.localToWorld(bsWorld);
 
     let cameraDir = new Vector3();
     this.camera.getWorldDirection(cameraDir);
-    // console.log(cameraDir);
-    // console.log(Math.sqrt(cameraDir.x*cameraDir.x + cameraDir.y*cameraDir.y+ cameraDir.z*cameraDir.z));
+    console.log(cameraDir);
+    console.log(Math.sqrt(cameraDir.x*cameraDir.x + cameraDir.y*cameraDir.y+ cameraDir.z*cameraDir.z));
 
     let vFoV = this.camera.getEffectiveFOV();
     let hFoV = this.camera.fov * this.camera.aspect;
     let FoV = Math.min(vFoV, hFoV);
     let FoV2 = FoV / 2;
 
-    console.log('-0-0-0-0-0-0', FoV, this.goalLogFov, this.getFieldOfView());
-
     let th = FoV2 * Math.PI / 180.0;
     let sina = Math.sin(th);
     let R = bs.radius;
     let FL = R / sina;
-    
+
     let cameraOffs = cameraDir.clone();
     cameraOffs.multiplyScalar(-FL);
-    // console.log(cameraOffs, bsWorld);
-    // let newCameraPos = bsWorld.clone().add(cameraOffs);
-    // console.log(newCameraPos);
-    
-    // // Note: This doesn't seem to be neeeded
-    // // // Needed to set the position and lookAt
-    // // // For camera not to reset when interacting with it
+    let newCameraPos = bsWorld.clone().add(cameraOffs);
+
+    // Note: This doesn't seem to be neeeded
+    // // Needed to set the position and lookAt
+    // // For camera not to reset when interacting with it
     // this.camera.position.copy(newCameraPos);
     // this.camera.lookAt(bsWorld);
-    
-    // // const c = newCameraPos.clone()
-    
-    // // The radius is actually the difference between the new position
-    // // and the center of the bounding sphere
-    // // newCameraPos.sub(bsWorld);
-    // // console.log(newCameraPos);
-    
-    // let newCameraPos = cameraOffs;
-    // const { x, y, z } = newCameraPos;
-    // const theta = Math.atan2(y, x);
-    // const phi = Math.sqrt(x * x + y * y) / z;
-    // const radius = Math.sqrt((x * x) + (y * y) + (z * z));
-    // console.log('vFov hFov', vFoV, hFoV, FL, this.getFieldOfView());
+
+    // const c = newCameraPos.clone()
+
+    // The radius is actually the difference between the new position
+    // and the center of the bounding sphere
+    newCameraPos.sub(bsWorld);
+
+    const { x, y, z } = newCameraPos;
+    const theta = Math.atan2(y, x);
+    const phi = Math.sqrt(x * x + y * y) / z;
+    const radius = Math.sqrt((x * x) + (y * y) + (z * z));
     // console.log(theta, phi, radius);
     // this.adjustOrbit(0, 0, -(radius));
     // https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/lookat-function
     // this.setOrbit(0, 0, radius);
 
-    this.goalSpherical.radius = FL;
-    console.log('setting spherical2222');
-    this.spherical.radius = FL;
-    this.jumpToGoal();
-    this.setFieldOfView(FoV);
+    this.goalSpherical.radius = radius;
     return this.goalSpherical;
   }
+
+  // // BY KRISTIAN
+  // fitCameraToObject(object) {
+  //   // TAKEN FROM: https://stackoverflow.com/a/64571830
+  //   // TODO: Need to convert to spherical coordinates from cartesian: https://irrlicht.sourceforge.io/forum/viewtopic.php?t=17033
+  //   const center = new Vector3();
+  //   const bb = new Box3().setFromObject(object);
+  //   bb.getCenter(center);
+
+  //   const size = new Vector3();
+  //   bb.getSize(size);
+
+  //   const bs = bb.getBoundingSphere(new Sphere(center));
+    
+  //   let bsWorld = bs.center.clone();
+  //   object.localToWorld(bsWorld);
+
+  //   let cameraDir = new Vector3();
+  //   this.camera.getWorldDirection(cameraDir);
+  //   // console.log(cameraDir);
+  //   // console.log(Math.sqrt(cameraDir.x*cameraDir.x + cameraDir.y*cameraDir.y+ cameraDir.z*cameraDir.z));
+
+  //   let vFoV = this.camera.getEffectiveFOV();
+  //   let hFoV = this.camera.fov * this.camera.aspect;
+  //   let FoV = Math.min(vFoV, hFoV);
+  //   let FoV2 = FoV / 2;
+
+  //   console.log('-0-0-0-0-0-0', FoV, this.goalLogFov, this.getFieldOfView());
+
+  //   let th = FoV2 * Math.PI / 180.0;
+  //   let sina = Math.sin(th);
+  //   let R = bs.radius;
+  //   let FL = R / sina;
+    
+  //   let cameraOffs = cameraDir.clone();
+  //   cameraOffs.multiplyScalar(-FL);
+  //   // console.log(cameraOffs, bsWorld);
+  //   let newCameraPos = bsWorld.clone().add(cameraOffs);
+  //   // console.log(newCameraPos);
+    
+  //   // // Note: This doesn't seem to be neeeded
+  //   // // // Needed to set the position and lookAt
+  //   // // // For camera not to reset when interacting with it
+  //   this.camera.position.copy(newCameraPos);
+  //   this.camera.lookAt(bsWorld);
+  //   console.log('-0-0-0-0999');
+    
+  //   // // const c = newCameraPos.clone()
+    
+  //   // // The radius is actually the difference between the new position
+  //   // // and the center of the bounding sphere
+  //   // // newCameraPos.sub(bsWorld);
+  //   // // console.log(newCameraPos);
+    
+  //   // let newCameraPos = cameraOffs;
+  //   // const { x, y, z } = newCameraPos;
+  //   // const theta = Math.atan2(y, x);
+  //   // const phi = Math.sqrt(x * x + y * y) / z;
+  //   // const radius = Math.sqrt((x * x) + (y * y) + (z * z));
+  //   // console.log('vFov hFov', vFoV, hFoV, FL, this.getFieldOfView());
+  //   // console.log(theta, phi, radius);
+  //   // this.adjustOrbit(0, 0, -(radius));
+  //   // https://www.scratchapixel.com/lessons/mathematics-physics-for-computer-graphics/lookat-function
+  //   // this.setOrbit(0, 0, radius);
+
+  //   // this.goalSpherical.radius = FL;
+  //   console.log('setting spherical2222');
+  //   this.spherical.radius = FL;
+  //   // this.jumpToGoal();
+  //   this.setFieldOfView(FoV);
+  //   return this.spherical;
+  // }
 
   zoomIn() {
     this.userAdjustOrbit(0, 0, -1 * ZOOM_SENSITIVITY);

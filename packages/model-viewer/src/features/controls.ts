@@ -468,6 +468,10 @@ export const ControlsMixin = <T extends Constructor<ModelViewerElementBase>>(
       return this[$renderer].getChildren();
     }
 
+    triggerRendererDirty(): void {
+      this[$renderer].triggerRendererDirty();
+    }
+
     triggerReRender(): void {
       this[$controls].triggerReRender();
     }

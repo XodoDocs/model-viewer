@@ -112,6 +112,11 @@ export class Renderer extends EventDispatcher {
   public isWireframe = false;
   public isWireframeAndModel = false;
 
+  public triggerRendererDirty() {
+    const scene = this.scenes.values().next().value;
+    scene.isDirty = true;
+  }
+
   public getCanvasRelativePosition(event, canvas) {
     const rect = canvas.getBoundingClientRect();
 
